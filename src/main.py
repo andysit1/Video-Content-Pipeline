@@ -3,6 +3,9 @@
 
 #PARSING
 #average db in video inorder to pickout ideal threshholds and durations
+#implent a freeze detections
+  #good way to reduce videos/filter out bad clips with freezedetect ffmpeg
+
 
 #FOCUS
 #implement background subtraction functions with opencv
