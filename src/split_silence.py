@@ -58,6 +58,7 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
         ) + ['-nostats'],  # FIXME: use .nostats() once it's implemented in ffmpeg-python.
         stderr=subprocess.PIPE
     )
+
     output = p.communicate()[1].decode('utf-8')
     if p.returncode != 0:
         sys.stderr.write(output)
@@ -95,7 +96,6 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
 
     return list(zip(chunk_starts, chunk_ends))
 
-
 def _makedirs(path):
     """Python2-compatible version of ``os.makedirs(path, exist_ok=True)``."""
     try:
@@ -117,27 +117,41 @@ def split_audio(
     chunk_times = get_chunk_times(in_filename, silence_threshold, silence_duration, start_time, end_time)
 
     for i, (start_time, end_time) in enumerate(chunk_times):
-        time = end_time - start_time
-        out_filename = out_pattern.format(i, i=i)
-        _makedirs(os.path.dirname(out_filename))
+        try:
+          time = end_time - start_time
 
-        logger.info('{}: start={:.02f}, end={:.02f}, duration={:.02f}'.format(out_filename, start_time, end_time,
-            time))
-        _logged_popen(
-            (ffmpeg
-                .input(in_filename, ss=start_time, t=time)
-                .output(out_filename)
-                .overwrite_output()
-                .compile()
-            ),
-            stdout=subprocess.PIPE if not verbose else None,
-            stderr=subprocess.PIPE if not verbose else None,
-        ).communicate()
+          if time < 3 and int(time) > 0:
+            out_filename = out_pattern.format(i, i=i)
+            _makedirs(os.path.dirname(out_filename))
+
+            logger.info('{}: start={:.02f}, end={:.02f}, duration={:.02f}'.format(out_filename, start_time, end_time,
+                time))
+            _logged_popen(
+                (ffmpeg
+                    .input(in_filename, ss=start_time, t=time)
+                    .output(out_filename)
+                    .overwrite_output()
+                    .compile()
+                ),
+                stdout=subprocess.PIPE if not verbose else None,
+                stderr=subprocess.PIPE if not verbose else None,
+            ).communicate()
+        except:
+            pass
 
 
 if __name__ == '__main__':
-    kwargs = vars(parser.parse_args())
-    if kwargs['verbose']:
-        logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
-        logger.setLevel(logging.DEBUG)
-    split_audio(**kwargs)
+    # kwargs = vars(parser.parse_args())
+    # if kwargs['verbose']:
+    #     logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
+    # logger.setLevel(logging.DEBUG)
+    # split_audio(**kwargs)
+
+    split_audio(
+        in_filename='../input-video/mine.mkv',
+        out_pattern='../output-video/video{}.mp4',
+        silence_threshold=-30,
+        silence_duration=0.5
+      )
+
+
