@@ -105,6 +105,8 @@ def _makedirs(path):
             raise
 
 
+#RULE: The game audio must be lower than the voice in general. This is because it ruins the scripts
+#and overall video quality.
 def split_audio(
     in_filename,
     out_pattern,
@@ -143,14 +145,14 @@ def split_audio(
 if __name__ == '__main__':
     # kwargs = vars(parser.parse_args())
     # if kwargs['verbose']:
-    #     logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
-    # logger.setLevel(logging.DEBUG)
     # split_audio(**kwargs)
 
+    logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
+    logger.setLevel(logging.DEBUG)
     split_audio(
         in_filename='../input-video/mine.mkv',
         out_pattern='../output-video/video{}.mp4',
-        silence_threshold=-30,
+        silence_threshold=-17,
         silence_duration=0.5
       )
 

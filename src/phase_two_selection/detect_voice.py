@@ -1,6 +1,6 @@
 import subprocess
 import sys
-from utils import _logged_popen
+from phase_one_extract.utils import _logged_popen
 from vosk import Model, KaldiRecognizer, SetLogLevel
 import ffmpeg
 
