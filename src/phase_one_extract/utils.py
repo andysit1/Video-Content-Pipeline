@@ -5,7 +5,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 #runs a command
 def _logged_popen(cmd_line, *args, **kwargs):
@@ -28,9 +28,6 @@ def get_mean_max(in_filename):
 
 def detect_voice() -> bool:
     pass
-
-
-
 
 if __name__ == "__main__":
     get_mean_max("../input-video/mine.mkv")

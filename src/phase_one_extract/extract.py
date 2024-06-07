@@ -1,4 +1,17 @@
-from split_silence import split_audio
+from split_silence import split_audio, read_file_silence
+import re
+from utils import _logged_popen
+import ffmpeg
+freeze_start_re = re.compile(r'lavfi\.freezedetect\.freeze_start=(?P<start>[0-9]+(\.[0-9]*)?)')
+freeze_end_re = re.compile(r'lavfi\.freezedetect\.freeze_end=(?P<end>[0-9]+(\.[0-9]*)?)')
+freeze_duration_re = re.compile(r'lavfi\.freezedetect\.freeze_duration=(?P<duration>[0-9]+(\.[0-9]*)?)')
+
+
+
+import logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__file__)
+logger.setLevel(logging.INFO)
 
 def generate_inital_clips():
     #silence with long durations "2 seconds"
@@ -8,6 +21,62 @@ def generate_inital_clips():
         silence_threshold=-17,
         silence_duration=2
     )
+
+def read_file_freeze(filename):
+    lines = open(filename, "r").read().splitlines()
+
+    chunk_start = []
+    chunk_end = []
+    chunk_duration = []
+
+    for line in lines:
+        start = freeze_start_re.search(line)
+        end = freeze_end_re.search(line)
+        length = freeze_duration_re.search(line)
+
+        if start:
+            chunk_start.append(start.group('start'))
+
+        if end:
+            chunk_end.append(end.group('end'))
+
+        if length:
+            chunk_duration.append(length.group('duration'))
+
+    if len(chunk_start) == 0:
+        # No silence found.
+        chunk_start.append(start.group('start'))
+        chunk_duration.append(0)
+
+
+    if len(chunk_start) > len(chunk_end):
+        # Finished with non-silence.
+        chunk_end.append(end.group('end') or 10000000.)
+
+    return list(zip(chunk_start, chunk_end, chunk_duration))
+
+# type.... (start, end, duration)
+def generate_video_freeze(chunks):
+
+    in_file = "../input-video/mine.mkv"
+    for i, (start, end, duration) in enumerate(chunks):
+        out_file = "../output-video/video{}.mp4".format(i)
+        logging.info('start:{} end:{} time:{}'.format(start, end, duration))
+        _logged_popen(
+            (ffmpeg
+                .input(in_file, ss=start, t=duration)
+                .output(out_file)
+                .overwrite_output()
+                .compile()
+            )
+        ).communicate()
+
+
+if __name__ == "__main__":
+    # print(read_file_silence("../output-text/vol.txt"))
+    data = read_file_freeze("../output-text/mine_freeze.txt")
+
+
 # def remove_poor_clips():
 class SingleVideoTool():
     def __init__(self):

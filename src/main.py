@@ -22,9 +22,6 @@ from base.state_machine import Engine, State
 
 engine = Engine()
 
-
-
-
 class ExtractState(State):
   def __init__(self, engine):
     super().__init__(engine)

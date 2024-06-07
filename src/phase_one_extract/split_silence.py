@@ -96,6 +96,40 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
 
     return list(zip(chunk_starts, chunk_ends))
 
+def read_file_silence(filename, start_time=None, end_time=None):
+    lines = open(filename, "r").read().splitlines()
+    print(lines)
+    chunk_starts = []
+    chunk_ends = []
+
+    for line in lines:
+        silence_start_match = silence_start_re.search(line)
+        silence_end_match = silence_end_re.search(line)
+        total_duration_match = total_duration_re.search(line)
+        if silence_start_match:
+            chunk_ends.append(float(silence_start_match.group('start')))
+            if len(chunk_starts) == 0:
+                # Started with non-silence.
+                chunk_starts.append(start_time or 0.)
+        elif silence_end_match:
+            chunk_starts.append(float(silence_end_match.group('end')))
+        elif total_duration_match:
+            hours = int(total_duration_match.group('hours'))
+            minutes = int(total_duration_match.group('minutes'))
+            seconds = float(total_duration_match.group('seconds'))
+            end_time = hours * 3600 + minutes * 60 + seconds
+
+    if len(chunk_starts) == 0:
+        # No silence found.
+        chunk_starts.append(start_time)
+
+    if len(chunk_starts) > len(chunk_ends):
+        # Finished with non-silence.
+        chunk_ends.append(end_time or 10000000.)
+
+    return list(zip(chunk_starts, chunk_ends))
+
+
 def _makedirs(path):
     """Python2-compatible version of ``os.makedirs(path, exist_ok=True)``."""
     try:
@@ -120,9 +154,9 @@ def split_audio(
 
     for i, (start_time, end_time) in enumerate(chunk_times):
         try:
-          time = end_time - start_time
-
-          if time < 3 and int(time) > 0:
+        #   time = end_time - start_time
+          time = 10
+          if time < 30 and int(time) > 0:
             out_filename = out_pattern.format(i, i=i)
             _makedirs(os.path.dirname(out_filename))
 
@@ -130,7 +164,7 @@ def split_audio(
                 time))
             _logged_popen(
                 (ffmpeg
-                    .input(in_filename, ss=start_time, t=time)
+                    .input(in_filename, ss=start_time - 5, t=time)
                     .output(out_filename)
                     .overwrite_output()
                     .compile()
@@ -150,9 +184,9 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
     logger.setLevel(logging.DEBUG)
     split_audio(
-        in_filename='../input-video/mine.mkv',
+        in_filename='../input-video/demo_valorant.mov',
         out_pattern='../output-video/video{}.mp4',
-        silence_threshold=-17,
+        silence_threshold=-14,
         silence_duration=0.5
       )
 
