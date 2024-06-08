@@ -12,6 +12,23 @@ def _logged_popen(cmd_line, *args, **kwargs):
     logger.debug('Running command: {}'.format(subprocess.list2cmdline(cmd_line)))
     return subprocess.Popen(cmd_line, *args, **kwargs)
 
+
+
+import re
+
+
+n_samples_re = re.compile(r'n_samples: (?P<n_samples>\d+)')
+
+# Regular expression for mean_volume
+mean_volume_re = re.compile(r'mean_volume: (?P<mean_volume>-?\d+(\.\d+)?) dB')
+
+# Regular expression for max_volume
+max_volume_re = re.compile(r'max_volume: (?P<max_volume>-?\d+(\.\d+)?) dB')
+
+# Regular expression for histogram entries
+histogram_re = re.compile(r'histogram_(?P<db_level>\d+)db: (?P<count>\d+)')
+
+
 def get_mean_max(in_filename):
     p = _logged_popen(
       (ffmpeg
@@ -24,7 +41,13 @@ def get_mean_max(in_filename):
     )
     output = p.communicate()[1].decode('utf-8')
     lines = output.splitlines()
-    print(lines)
+
+    for line in lines:
+        mean_volume_match = mean_volume_re.search(line)
+        max_volume_match = max_volume_re.search(line)
+        histogram_matches = histogram_re.findall(line)
+
+    print(mean_volume_match, max_volume_match, histogram_matches)
 
 def detect_voice() -> bool:
     pass
