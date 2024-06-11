@@ -1,6 +1,6 @@
-from split_silence import split_audio, read_file_silence
+from .split_silence import split_audio, read_file_silence
 import re
-from utils import _logged_popen, mean_volume_re, max_volume_re, histogram_re
+from .utils import _logged_popen, mean_volume_re, max_volume_re, histogram_re
 import ffmpeg
 freeze_start_re = re.compile(r'lavfi\.freezedetect\.freeze_start=(?P<start>[0-9]+(\.[0-9]*)?)')
 freeze_end_re = re.compile(r'lavfi\.freezedetect\.freeze_end=(?P<end>[0-9]+(\.[0-9]*)?)')
@@ -33,7 +33,6 @@ def read_file_volumedetect(filename):
         max_volume_match = max_volume_re.search(line)
         histogram_matches = histogram_re.findall(line)
 
-
         if mean_volume_match:
             print("mean_volume:", mean_volume_match.group('mean_volume'))
 
@@ -60,13 +59,13 @@ def read_file_freeze(filename):
         length = freeze_duration_re.search(line)
 
         if start:
-            chunk_start.append(start.group('start'))
+            chunk_start.append(float(start.group('start')))
 
         if end:
-            chunk_end.append(end.group('end'))
+            chunk_end.append(float(end.group('end')))
 
         if length:
-            chunk_duration.append(length.group('duration'))
+            chunk_duration.append(float(length.group('duration')))
 
     if len(chunk_start) == 0:
         # No silence found.

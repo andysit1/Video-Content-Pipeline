@@ -15,9 +15,7 @@
   #glob all files in dir into video
   #can probably just find a ffmpeg command to do this...
 
-
 from base.state_machine import Engine, State
-
 
 
 engine = Engine()
@@ -29,7 +27,6 @@ class ExtractState(State):
 
   def on_update(self):
     print("Thank you for running our program; Ending.")
-
 
 
 class EndState(State):

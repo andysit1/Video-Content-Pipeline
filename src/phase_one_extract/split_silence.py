@@ -98,9 +98,9 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
 
 def read_file_silence(filename, start_time=None, end_time=None):
     lines = open(filename, "r").read().splitlines()
-    print(lines)
     chunk_starts = []
     chunk_ends = []
+    
 
     for line in lines:
         silence_start_match = silence_start_re.search(line)
