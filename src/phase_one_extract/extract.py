@@ -100,32 +100,3 @@ if __name__ == "__main__":
     # print(read_file_silence("../output-text/vol.txt"))
     # chunks = read_file_freeze("../output-text/mine_freeze.txt")
     read_file_volumedetect("../output-text/mine_volumedetect.txt")
-
-
-# def remove_poor_clips():
-class SingleVideoTool():
-    def __init__(self):
-        self.filename : str = None
-
-    def on_fail(self):
-        #returns a error to user and returns to endstate for developer
-        #should return log of what when wrong if the very first video was error
-        pass
-
-    def on_success(self):
-        #moves on to next phase of extraction return  True
-        pass
-
-
-class MultiVideoTool():
-    def __init__(self):
-        self.dir : str = None
-
-    def on_fail(self):
-        #returns a error to user and returns to endstate for developer
-        #should return log of what when wrong if the very first video was error
-        pass
-
-    def on_success(self):
-        #moves on to next phase of extraction return  True
-        pass

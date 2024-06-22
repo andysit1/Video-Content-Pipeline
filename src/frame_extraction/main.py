@@ -21,9 +21,9 @@ import sys
 
 """
 Brain Storm
-
-
   1.) We should also create a new region that cuts 70% of the screen
+
+
   2.) Take Array and throw it into a histrogram to see if we can see any patterns
   3.) Create some sort of function to find the focus of the screen? or the highlight at a given moment
   4.) Look into parrel looping or way to speed up the process since this will take so long
@@ -75,6 +75,7 @@ def get_cropped():
   return cropped
 
 
+#takes numpy array of images...
 def save_out_frames(images):
   logger.debug("SAVING IMAGES")
 
@@ -93,8 +94,6 @@ def save_out_frames(images):
       raise Exception("Could not write image")
 
     c += 1
-
-
 
 def process_frames():
   logger.debug("PROCESSING FRAMES")
@@ -115,10 +114,8 @@ def process_frames():
     processedImage = cv2.GaussianBlur(processedImage,(5,5),0)
 
     print("process", processedImage)
-    if os.path.exists(os.path.join(current_dir, "frame_extraction", "out_frame")):
-      print("found")
-    else:
-      print("not found")
+    if not os.path.exists(os.path.join(current_dir, "frame_extraction", "out_frame")):
+      print("Starting dir is incorrect, please cd into src")
 
     out_file = os.path.join(current_dir, "frame_extraction", "out_frame", "demo_gaus{}.png".format(str(c)))
 
@@ -135,6 +132,48 @@ def process_frames():
 
     c += 1
   # # cv2.imread()
+
+
+
+"""
+  Process all the frames with a given offset
+  For each frame we want to analyze the clip
+
+
+
+
+
+
+"""
+
+class ProcessHandler:
+  def __init__(self):
+    self.frame_offset : float = None
+    self.frames : list = None
+
+  def split_video_to_frames(self):
+    """
+      if frame_offset:
+        then we call split clip into frames
+
+      we then load the frames into self.frames
+    """
+    pass
+
+  def color(self):
+    return
+
+  def edge(self):
+    return
+
+  def threshold(self):
+    return
+
+  def run(self):
+    #custom make the run base on the preset or type of content we are editing
+    pass
+
+
 
 if __name__ == "__main__":
   logging.basicConfig(level=logging.DEBUG)
