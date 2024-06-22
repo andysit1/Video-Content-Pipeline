@@ -76,7 +76,7 @@ def get_cropped():
 
 
 #takes numpy array of images...
-def save_out_frames(images):
+def save_out_frames(images, pattern : str):
   logger.debug("SAVING IMAGES")
 
   current_dir = os.path.dirname(os.path.dirname(__file__))
@@ -88,7 +88,7 @@ def save_out_frames(images):
     else:
       print("not found")
 
-    out_file = os.path.join(current_dir, "frame_extraction", "out_frame", "demo_{}.png".format(str(c)))
+    out_file = os.path.join(current_dir, "frame_extraction", "out_frame", "{}{}.png".format(pattern, str(c)))
     print("outfile", out_file)
     if not cv2.imwrite(out_file, image):
       raise Exception("Could not write image")
@@ -135,46 +135,6 @@ def process_frames():
 
 
 
-"""
-  Process all the frames with a given offset
-  For each frame we want to analyze the clip
-
-
-
-
-
-
-"""
-
-class ProcessHandler:
-  def __init__(self):
-    self.frame_offset : float = None
-    self.frames : list = None
-
-  def split_video_to_frames(self):
-    """
-      if frame_offset:
-        then we call split clip into frames
-
-      we then load the frames into self.frames
-    """
-    pass
-
-  def color(self):
-    return
-
-  def edge(self):
-    return
-
-  def threshold(self):
-    return
-
-  def run(self):
-    #custom make the run base on the preset or type of content we are editing
-    pass
-
-
-
 if __name__ == "__main__":
   logging.basicConfig(level=logging.DEBUG)
   logging.debug("starting debugging")
@@ -184,7 +144,7 @@ if __name__ == "__main__":
 
 
 
-  # image = None
+  # image = No
   # processedImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
   # processedImage =  cv2.Canny(processedImage, threshold1 = 100, threshold2=300)
   # cv2.imwrite('1.png', processedImage)

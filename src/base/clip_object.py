@@ -21,26 +21,22 @@
 """
 
 
-from frame_extraction.main import ProcessHandler
-
-
-
-
 class Clip:
 
-  def __init__(self):
-    self.points : int = None
+  def __init__(self, path : str):
+    self.path : str = path
 
+    self.points : int = None
     #video details
-    self.path : str = None
     self.timestamp : str = None
 
-    #opencv specific
-    self.processor_handler = ProcessHandler()
 
+
+  def get_path(self):
+    return self.path
 
   def process(self):
-    self.processor_handler.run()
+    # self.processor_handler.run()
     pass
 
 

@@ -19,7 +19,8 @@ Basic outline - of video pipeline
 
 
 from phase_one_extract.split_silence import get_clean_chunk_times
-
+import glob
+from base.clip_object import Clip
 
 
 
@@ -32,5 +33,16 @@ if __name__ == "__main__":
     seconds_between_clips_varriance = 10
 
 
-    silence_intervals = get_clean_chunk_times(in_filename=in_filename, seconds_between_clips_varriance=seconds_between_clips_varriance,silence_threshold=silence_threshold, silence_duration=0.5)
-    print(silence_intervals)
+    # silence_intervals = get_clean_chunk_times(in_filename=in_filename, seconds_between_clips_varriance=seconds_between_clips_varriance,silence_threshold=silence_threshold, silence_duration=0.5)
+    # print(silence_intervals)
+
+    clips = glob.glob("../output-video/*")
+    
+
+
+    # for clip in clips:
+
+
+
+    print(clips)
+
