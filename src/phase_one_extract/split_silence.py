@@ -96,11 +96,48 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
 
     return list(zip(chunk_starts, chunk_ends))
 
+
+#needs to add like 10-14 min leeway for the clippping so that clips dont end to akwardly
+
+def get_clean_chunk_times(in_filename, silence_threshold, silence_duration, seconds_between_clips_varriance : int):
+
+    silence_intervals = get_chunk_times(in_filename=in_filename, silence_threshold=silence_threshold, silence_duration=silence_duration)
+
+    previous_end = 0
+    for i, (start_time, end_time) in enumerate(silence_intervals):
+        if i == 0:
+            previous_end = end_time
+            continue
+
+        if start_time - previous_end <= seconds_between_clips_varriance:
+            silence_intervals[i - 1] = silence_intervals[i - 1] + silence_intervals[i]
+            silence_intervals.remove(silence_intervals[i])
+
+        previous_end = end_time
+
+
+    for intervals in silence_intervals:
+        if len(intervals) == 2:
+            #if interval is less than 1 second it likely means it wasnt a good moment and just a
+            #specific high frequency sound in game
+
+            if intervals[1] - intervals[0] < 1:
+                silence_intervals.remove(intervals)
+
+    reformat_silence_intervals = []
+
+    for interval in silence_intervals:
+        reformat_silence_intervals.append((interval[0], interval[-1]))
+
+
+    return reformat_silence_intervals
+
+
 def read_file_silence(filename, start_time=None, end_time=None):
     lines = open(filename, "r").read().splitlines()
     chunk_starts = []
     chunk_ends = []
-    
+
 
     for line in lines:
         silence_start_match = silence_start_re.search(line)
@@ -150,7 +187,7 @@ def split_audio(
     end_time=None,
     verbose=False,
 ):
-    chunk_times = get_chunk_times(in_filename, silence_threshold, silence_duration, start_time, end_time)
+    chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, 30)
 
     for i, (start_time, end_time) in enumerate(chunk_times):
         try:
