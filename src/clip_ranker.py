@@ -1,11 +1,13 @@
 import cv2
 from base.clip_object import Clip
 from frame_extraction.main import crop_viewable_region, save_out_frames
+from frame_extraction.utils import average_method, luminosity_method
 import numpy as np
 #taks a clip objet and starts processing the rank
 from sklearn.cluster import KMeans
 from collections import Counter
 import os
+
 
 
 
@@ -57,10 +59,6 @@ class Ranker:
     region =  np.array([[100, 100],[1600, 100],[1600,800],[100, 800]], np.int32)
 
     for frame in self.frames:
-      #crop, gray scale, blur
-      print('frame', frame)
-
-
       processedImage = crop_viewable_region(frame, [region])
       processedImage = cv2.cvtColor(processedImage, cv2.COLOR_BGR2GRAY)
       processedImage = cv2.GaussianBlur(processedImage,(5,5),0)
@@ -69,34 +67,87 @@ class Ranker:
       self.processed_frames.append(processedImage)
 
 
-  def color_dom_processing(self):
-    for frame in self.frames:
-      # Resize frame to speed up processing
-      small_frame = cv2.resize(frame, (0, 0), fx=0.1, fy=0.1)
-      # Reshape the image to be a list of pixels
-      pixels = small_frame.reshape((-1, 3))
-      # Cluster the pixel intensities
-      kmeans = KMeans(n_clusters=5)
-      kmeans.fit(pixels)
-      # Get the number of pixels in each cluster
-      counts = Counter(kmeans.labels_)
-      # Sort to find the most popular colors
-      center_colors = kmeans.cluster_centers_
-      ordered_colors = [center_colors[i] for i in counts.keys()]
-      self.processed_frames_color_dom.append(ordered_colors)
+  """
 
+  Thoughts, the most eye popping/action pack scene will likely have a large
+  contracts.
+
+  """
+
+  #
+  # def color_dom_processing(self):
+  #   for frame in self.frames:
+  #     # Resize frame to speed up processing
+  #     small_frame = cv2.resize(frame, (0, 0), fx=0.1, fy=0.1)
+  #     # Reshape the image to be a list of pixels
+  #     pixels = small_frame.reshape((-1, 3))
+  #     # Cluster the pixel intensities
+  #     kmeans = KMeans(n_clusters=5)
+  #     kmeans.fit(pixels)
+  #     # Get the number of pixels in each cluster
+  #     counts = Counter(kmeans.labels_)
+  #     # Sort to find the most popular colors
+  #     center_colors = kmeans.cluster_centers_
+  #     ordered_colors = [center_colors[i] for i in counts.keys()]
+  #     self.processed_frames_color_dom.append(ordered_colors)
+
+  #     return ordered_colors[0], ordered_colors[-1]
+
+
+
+  def color_dom_processing(self, frame):
+    small_frame = cv2.resize(frame, (0, 0), fx=0.1, fy=0.1)
+    # Reshape the image to be a list of pixels
+    pixels = small_frame.reshape((-1, 3))
+    # Cluster the pixel intensities
+    kmeans = KMeans(n_clusters=3)
+    kmeans.fit(pixels)
+    # Get the number of pixels in each cluster
+    counts = Counter(kmeans.labels_)
+    # Sort to find the most popular colors
+    center_colors = kmeans.cluster_centers_
+    ordered_colors = [center_colors[i] for i in counts.keys()]
+    self.processed_frames_color_dom.append(ordered_colors)
+
+    return ordered_colors
+
+
+  #the domaniant colors will almost 90% be the colors of the envoirnment, hence I believe its resonable to take the first and last as the lower bounds
+  #this way we can exclude a good about of the terrain of the start
   def color_threshold_processing(self):
+
     for frame in self.frames:
-      hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+      process_frame = cv2.GaussianBlur(frame, (5,5), 0)
+      dom_colors = self.color_dom_processing(frame=process_frame)
+
+      print("Dom", dom_colors)
+
+      hsv_frame = cv2.cvtColor(process_frame, cv2.COLOR_BGR2HSV)
       # Define range of a color in HSV
-      lower_bound = np.array([30, 150, 50])
-      upper_bound = np.array([255, 255, 180])
+      lower_bound = np.array(dom_colors[0])
+      upper_bound = np.array(dom_colors[-1])
       # Threshold the HSV image to get only desired colors
       mask = cv2.inRange(hsv_frame, lower_bound, upper_bound)
-      self.processed_frames_color_threshold.append(mask)
+      inverse_mask = cv2.bitwise_not(mask)
+
+      self.processed_frames_color_threshold.append(inverse_mask)
+
+
+  #wanted to see if this was possible to try and threshold the domaniant colors ina  gray image, the output wasn't soo good but it's okay
+
+  def color_blacknwhite_threshold_processing(self):
+    for frame in self.processed_frames:
+
+
+
+      dom_colors = self.color_dom_processing(frame=frame)
+      print("Domaniant colors for processed images", dom_colors[0], dom_colors[-1])
+      print(average_method(dom_colors[0]), luminosity_method(dom_colors[0]))
+
+      _, thresh = cv2.threshold(frame, luminosity_method(dom_colors[0]), luminosity_method(dom_colors[1]), cv2.THRESH_BINARY)
+      self.processed_frames_threshold.append(thresh)
 
   def color_processing(self):
-    self.color_dom_processing()
     self.color_threshold_processing()
 
   def edge(self):
@@ -106,13 +157,14 @@ class Ranker:
 
   def threshold(self):
     for frame in self.processed_frames:
-        _, thresh = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(frame, 100, 255, cv2.THRESH_BINARY)
         self.processed_frames_threshold.append(thresh)
 
 
   def run(self):
     self.simplify_frames()
-    self.color_processing()
+    self.threshold()
+    # self.color_blacknwhite_threshold_processing()
     # Add more processing steps as needed
 
 if __name__ == "__main__":
@@ -131,10 +183,16 @@ if __name__ == "__main__":
   #Testing Frame
 
   frame_path = "./frame_extraction/in_frame/demo2.png"
+  frame_path1 = "./frame_extraction/in_frame/demo3.jpg"
+
   clip_ranker.load_frame(frame_path=frame_path)
+  clip_ranker.load_frame(frame_path=frame_path1)
+
+
   clip_ranker.run()
+
+  # save_out_frames(clip_ranker.frames, "frames")
   save_out_frames(clip_ranker.processed_frames, "process_frames")
-  # save_out_frames(clip_ranker.processed_frames_color_dom, "process_frames_color_dom")
-  save_out_frames(clip_ranker.processed_frames_color_threshold, "process_frames_color_thresh")
+  save_out_frames(clip_ranker.processed_frames_threshold, "process_frames_threshold")
 
 

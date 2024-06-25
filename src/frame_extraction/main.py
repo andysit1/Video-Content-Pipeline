@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 def crop_viewable_region(img, region=None):
   print("input {} output{}".format(img, region))
   mask = np.zeros_like(img)
-  cv2.fillPoly(mask, region, 255)
+  cv2.fillPoly(mask, region, (255, 255, 255))
   masked = cv2.bitwise_and(img, mask)
   print("Masking output", masked)
   return masked
