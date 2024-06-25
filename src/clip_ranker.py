@@ -5,6 +5,7 @@ import numpy as np
 #taks a clip objet and starts processing the rank
 from sklearn.cluster import KMeans
 from collections import Counter
+import os
 
 
 
@@ -13,14 +14,26 @@ class Ranker:
     self.frames = []
     self.processed_frames = []
     self.processed_frames_edge = []
-    self.processed_frames_color = []
     self.processed_frames_threshold = []
+
+    self.processed_frames_color = []
+
+
     self.processed_frames_color_threshold = []
     self.processed_frames_color_dom = []
 
     #constant
     self.constant_fps = None
     self.constant_frames = None
+
+  def load_frame(self, frame_path : str):
+    if os.path.exists(path=frame_path):
+      print("Successfully Loaded {}".format(frame_path))
+      img = cv2.imread(frame_path)
+      self.frames.append(img)
+    else:
+      print("Frame not found at {}".format(frame_path))
+
   #will split the video into frames every .5 second assuming a 60 fps video
   def load_clip(self, clip : Clip):
     cap = cv2.VideoCapture(clip.get_path())
@@ -99,17 +112,29 @@ class Ranker:
 
   def run(self):
     self.simplify_frames()
+    self.color_processing()
     # Add more processing steps as needed
 
 if __name__ == "__main__":
   print("Testing Rank Class")
 
+  #Testing Clipping
   clip_ranker = Ranker()
-  clip1 = Clip("../output-video/video49.mp4")
-  clip_ranker.load_clip(clip=clip1)
-  clip_ranker.run()
+  # clip1 = Clip("../output-video/video49.mp4")
+  # clip_ranker.load_clip(clip=clip1)
+  # clip_ranker.run()
 
-  print(clip_ranker.processed_frames)
+  # print(clip_ranker.processed_frames)
+  # save_out_frames(clip_ranker.processed_frames, "process_frames")
+
+
+  #Testing Frame
+
+  frame_path = "./frame_extraction/in_frame/demo2.png"
+  clip_ranker.load_frame(frame_path=frame_path)
+  clip_ranker.run()
   save_out_frames(clip_ranker.processed_frames, "process_frames")
+  # save_out_frames(clip_ranker.processed_frames_color_dom, "process_frames_color_dom")
+  save_out_frames(clip_ranker.processed_frames_color_threshold, "process_frames_color_thresh")
 
 
