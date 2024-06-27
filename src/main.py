@@ -9,40 +9,41 @@ Basic outline - of video pipeline
 
 2.) take all timestamps and make clip objects
 
-3.) process them in a loop, ideally do it in parrel or some sort of async to speed it up
-    Maybe thread it
+3.) proccess each clip and rank it by points
 
-4.) After iterate between the videos and form relations based on the data collected
-    ALSO plot the data based on the time stamp to a histogram or bargraph
+4.) take each node and graph it into a graph to see how it looks
 
 """
 
-
+import os
 from phase_one_extract.split_silence import get_clean_chunk_times
 import glob
 from base.clip_object import Clip
+from clip_ranker import Ranker
 
 
 
 if __name__ == "__main__":
 
-    in_filename='../input-video/demo_valorant.mov'
-    out_pattern='../output-video/video{}.mp4'
-    silence_threshold = -14
-    silence_duration = 0.5
-    seconds_between_clips_varriance = 10
+    clip_file = "../output-video/"
+
+    if not os.path.exists(clip_file):
+        raise TypeError("Path not found")
 
 
-    # silence_intervals = get_clean_chunk_times(in_filename=in_filename, seconds_between_clips_varriance=seconds_between_clips_varriance,silence_threshold=silence_threshold, silence_duration=0.5)
-    # print(silence_intervals)
+    clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+    clips_points = []
+    ranker = Ranker()
+    for clip in clips_filename:
+        clip_obj = Clip(path=clip)
+        ranker.load_clip(clip_obj)
+        ranker.run()
+        clips_points.append((clip, ranker.get_points()))
 
-    clips = glob.glob("../output-video/*")
-    
 
+    # we need to create a way to scale points based on durations
+    # clips that are 2 seconds long probably should not have high clip value as its shorter meaning
+    # for clips to reach the same level of point it probably that clip had the crosshair over something interesting
 
-    # for clip in clips:
-
-
-
-    print(clips)
+    print(clips_points)
 

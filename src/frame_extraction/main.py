@@ -42,10 +42,17 @@ def crop_viewable_region(img, region=None):
   return masked
 
 
+#crops its around the middle offset so we can see action near the crosshair
+def crop_image_crosshair(img):
+  shape = img.shape
+  x_mid = int(shape[0] / 2)
+  y_mid = int(shape[1] / 2)
+  offset = 75
+  return img[x_mid-offset:x_mid+offset , y_mid-offset:y_mid+offset]
+
 def load_frames():
   files = glob.glob("./frame_extraction/in_frame/*")
   return files
-
 
 def get_filed_info() -> list:
   files = load_frames()
@@ -75,19 +82,26 @@ def get_cropped():
   return cropped
 
 
+
+def remove_all_contents_output_frame():
+  input_video_path = './frame_extraction/out_frame/'
+
+  if os.path.exists(path=input_video_path):
+    frames = glob.glob(os.path.join(input_video_path, "*png"))
+
+    for frame in frames:
+      os.remove(frame)
+  else:
+    raise TypeError("Input file not found.")
+
 #takes numpy array of images...
 def save_out_frames(images, pattern : str):
-  logger.debug("SAVING IMAGES")
 
   current_dir = os.path.dirname(os.path.dirname(__file__))
   c = 0
-  for image in images:
-    print(image)
-    if os.path.exists(os.path.join(current_dir, "frame_extraction", "out_frame")):
-      print("found")
-    else:
-      print("not found")
 
+  remove_all_contents_output_frame()
+  for image in images:
     out_file = os.path.join(current_dir, "frame_extraction", "out_frame", "{}{}.png".format(pattern, str(c)))
     print("outfile", out_file)
     if not cv2.imwrite(out_file, image):
