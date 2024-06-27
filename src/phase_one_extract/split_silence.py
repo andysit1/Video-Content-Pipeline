@@ -188,13 +188,20 @@ def split_audio(
     verbose=False,
 ):
     chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, 30)
-
+    print(chunk_times)
     for i, (start_time, end_time) in enumerate(chunk_times):
+
         try:
-        #   time = end_time - start_time
-          time = 10
+          time = end_time - start_time #no clip longer than 30 secs and less than 0 seconds
+          print(time)
           if time < 30 and int(time) > 0:
-            out_filename = out_pattern.format(i, i=i)
+            if 0 < i or i < 10:
+                print("hithit")
+                out_filename_tail = str(0) + str(i)
+                out_filename = out_pattern.format(out_filename_tail)
+            else:
+                out_filename = out_pattern.format(i, i=i)
+
             _makedirs(os.path.dirname(out_filename))
 
             logger.info('{}: start={:.02f}, end={:.02f}, duration={:.02f}'.format(out_filename, start_time, end_time,
