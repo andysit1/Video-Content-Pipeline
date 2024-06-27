@@ -40,7 +40,6 @@ if __name__ == "__main__":
         ranker.run()
         clips_points.append((clip, ranker.get_points()))
 
-
     # we need to create a way to scale points based on durations
     # clips that are 2 seconds long probably should not have high clip value as its shorter meaning
     # for clips to reach the same level of point it probably that clip had the crosshair over something interesting
