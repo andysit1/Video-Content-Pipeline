@@ -34,6 +34,22 @@ find_clique - finds clusters/best subgraph
 
 #if each clip is a node, connect the edges based on the weight/point system
 
+
+RULES - basic assumptions we should make to make our graph logic based off of
+
+STORY MODE------------------------- Probably better just to stick to a list data structure instead of a graph since we want something linear
+We want clips to be ordered by time
+
+TIMELESS MODE ---------------------
+We want to use graphs (undirected)
+Not all clip should make it to the end -> centrality best case?
+
+Attributes for edges to connect  -
+On_Unique Color -> how interesting a clip is, -> when not in dom color and not a shade, -> we should give points/ratio based on clip size
+On_Target Color -> given a target color we can tell specific information based on game, -> mask and threshold target color range + percentage_of_white_pixels
+Change_Dom_ Color -> change in environment/scene change up, save dom_colors then average change between clips -> greater change good for contrasting videos
+ACTIVITY_AMOUNT threshold -> at a certain threshold, we can spot skills in valorant. Use threshold + percentage_of_white_pixels
+
 """
 
 
