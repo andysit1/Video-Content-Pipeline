@@ -123,6 +123,8 @@ class Ranker:
 
 
 
+
+
   #if we calculate the dom colors within the range of the screen, we can determine when we see players or is looking at interesting objects
   def color_dom_processing(self, frame):
     small_frame = cv2.resize(frame, (0, 0), fx=0.1, fy=0.1)
@@ -148,8 +150,6 @@ class Ranker:
     for frame in self.frames:
       process_frame = cv2.GaussianBlur(frame, (5,5), 0)
       dom_colors = self.color_dom_processing(frame=process_frame)
-
-      print("Dom", dom_colors)
 
       hsv_frame = cv2.cvtColor(process_frame, cv2.COLOR_BGR2HSV)
       # Define range of a color in HSV

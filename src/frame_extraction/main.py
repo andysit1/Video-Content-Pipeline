@@ -20,6 +20,9 @@ import os
 import sys
 
 """
+This file is more utils to analyze a frame/image -> shove into the utils
+
+
 Brain Storm
   1.) We should also create a new region that cuts 70% of the screen
 
@@ -27,12 +30,14 @@ Brain Storm
   2.) Take Array and throw it into a histrogram to see if we can see any patterns
   3.) Create some sort of function to find the focus of the screen? or the highlight at a given moment
   4.) Look into parrel looping or way to speed up the process since this will take so long
+
 """
 
 
 
 logger = logging.getLogger(__name__)
 
+#crops a based on an array of list
 def crop_viewable_region(img, region=None):
   print("input {} output{}".format(img, region))
   mask = np.zeros_like(img)
