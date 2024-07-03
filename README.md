@@ -1,8 +1,6 @@
 # Video-Content-Pipeline
 Making videos at lightspeed
 
-![Alt text](assets/smth.png)
-
 ## Purpose
 
 In this project I wanted to mass edit large videos for streams on twitch for personal and school club reasons. I always thought this project was really interesting which is why I decided to spend some time this summer coding it.
