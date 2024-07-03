@@ -78,6 +78,9 @@ class Ranker:
         cap.release()
       c += 1
 
+    
+
+
   def simplify_frames(self):
     # region =  np.array([[100, 100],[1600, 100],[1600,800],[100, 800]], np.int32)
 
