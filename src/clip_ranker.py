@@ -12,7 +12,6 @@ import os
 
 
 
-
 class Ranker:
   def __init__(self):
     self.frames = []
@@ -200,7 +199,7 @@ class Ranker:
     self.simplify_frames()
     self.threshold()
     self.color_processing()
-    
+
     self.data = zip_longest(
       self.processed_frames,
       self.processed_frames_color,
@@ -212,7 +211,7 @@ class Ranker:
 
 
 
-
+  #test
 
 
   def get_points(self):
