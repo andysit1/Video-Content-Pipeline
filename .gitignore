@@ -1,5 +1,7 @@
 *.pyc
+*.mp4
 *.__pycache__
 
 /src/temp_frames
 /src/frame_extraction/out_frame
+/TD

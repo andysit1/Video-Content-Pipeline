@@ -53,7 +53,12 @@ ACTIVITY_AMOUNT threshold -> at a certain threshold, we can spot skills in valor
 """
 
 
-import networkx
+import networkx as nx
+
+G = nx.Graph()
+
+def load_clip_nodes(edges_list : list):
+  pass
 
 
 

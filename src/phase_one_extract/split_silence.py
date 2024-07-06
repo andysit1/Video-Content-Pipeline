@@ -187,7 +187,7 @@ def split_audio(
     end_time=None,
     verbose=False,
 ):
-    chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, 30)
+    chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, 60)
     print(chunk_times)
     for i, (start_time, end_time) in enumerate(chunk_times):
 
@@ -225,14 +225,13 @@ if __name__ == '__main__':
     # if kwargs['verbose']:
     # split_audio(**kwargs)
 
-    logging.basicConfig(level=logging.DEBUG, format='%(levels): %(message)s')
-    logger.setLevel(logging.DEBUG)
-    split_audio(
-        in_filename='../input-video/demo_valorant.mov',
-        out_pattern='../output-video/video{}.mp4',
-        silence_threshold=-14,
-        silence_duration=0.5
-      )
 
+    c = split_audio(
+        in_filename='../TD/VODS/sanch.mp4',
+        silence_threshold=-10,
+        silence_duration=3,
+    )
 
-    
+    print(c)
+    print("---")
+    print(len(c))

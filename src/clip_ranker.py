@@ -33,6 +33,7 @@ class Ranker:
     self.action_weight : int = 1
     self.action_points : int = 0
 
+    self.data = None
 
   #this should be in the clip object
   def load_frame(self, frame_path : str):
@@ -78,7 +79,7 @@ class Ranker:
         cap.release()
       c += 1
 
-    
+
 
 
   def simplify_frames(self):
@@ -170,7 +171,6 @@ class Ranker:
   def color_blacknwhite_threshold_processing(self):
     for frame in self.processed_frames:
       dom_colors = self.color_dom_processing(frame=frame)
-      print(average_method(dom_colors[0]), luminosity_method(dom_colors[0]))
 
       _, thresh = cv2.threshold(frame, luminosity_method(dom_colors[0]), luminosity_method(dom_colors[1]), cv2.THRESH_BINARY)
       self.processed_frames_threshold.append(thresh)
@@ -195,8 +195,24 @@ class Ranker:
         self.action_points += percentage_of_white_pixels(thresh) * self.action_weight
 
   def run(self):
+    from itertools import zip_longest
+
     self.simplify_frames()
     self.threshold()
+    self.color_processing()
+    
+    self.data = zip_longest(
+      self.processed_frames,
+      self.processed_frames_color,
+      self.processed_frames_color_dom,
+      self.processed_frames_threshold,
+      self.processed_frames_color_threshold,
+      fillvalue="?"
+    )
+
+
+
+
 
 
   def get_points(self):

@@ -16,7 +16,7 @@ Basic outline - of video pipeline
 """
 
 import os
-from phase_one_extract.split_silence import get_clean_chunk_times
+from phase_one_extract.split_silence import get_clean_chunk_times, split_audio
 import glob
 from base.clip_object import Clip
 from clip_ranker import Ranker
@@ -26,13 +26,22 @@ from frame_extraction.utils import combine_select_output_videos_into_video, conc
 
 
 if __name__ == "__main__":
-
-    #assuming we called the clean_chunk_times() already for the output-video file to be full of clips
+    in_filename='../TD/VODS/sanch.mp4',
+    silence_threshold=-10,
+    silence_duration=3,
     clip_file = "../output-video/"
+    out_pattern = "../output-video/video{}.mp4"
 
     if not os.path.exists(clip_file):
         raise TypeError("Path not found")
-
+    
+    #assuming we called the clean_chunk_times() already for the output-video file to be full of clips
+    split_audio(
+        in_filename='../TD/VODS/sanch.mp4',
+        silence_threshold=-10,
+        silence_duration=3,
+        out_pattern=out_pattern
+    )
 
     clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
     clips_points = []
@@ -40,6 +49,9 @@ if __name__ == "__main__":
 
     for clip in clips_filename:
         clip_obj = Clip(path=clip)
+
+        # TODO: we can make it so they save the data into a dict so we can cache the frame
+
         ranker.load_clip(clip_obj)
         ranker.run()
         clips_points.append((clip, ranker.get_points()))
@@ -55,8 +67,8 @@ if __name__ == "__main__":
     avg = values / len(clips_points)
     selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
 
-    ic(selected_clips)
 
+    ic(selected_clips)
     concat_demuxer_method(selected_clips)
     # for clip in selected_clips:
 

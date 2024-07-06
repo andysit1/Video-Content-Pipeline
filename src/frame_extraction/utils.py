@@ -22,6 +22,8 @@ def luminosity_method(x_list):
 def combine_output_frames_into_video(frame_rate : int = 60):
 
   input_video_path = './frame_extraction/out_frame/'
+
+  
   fourcc = cv2.VideoWriter_fourcc(*'mp4v')
   output_video_path = '../processed-output-videos'
 
@@ -76,8 +78,8 @@ def concat_demuxer_method(clips : list):
       )
     ).communicate()
 
-  except:
-    print("Error")
+  except Exception as e:
+    print("Error", e)
 
 
 #pass the parse contents from ranker.get_points()

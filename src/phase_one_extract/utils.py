@@ -1,6 +1,7 @@
 import ffmpeg
 import subprocess
 import logging
+import os
 
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -30,6 +31,9 @@ histogram_re = re.compile(r'histogram_(?P<db_level>\d+)db: (?P<count>\d+)')
 
 
 def get_mean_max(in_filename):
+    if not os.path.exists(in_filename):
+        raise FileExistsError("path not found")
+
     p = _logged_popen(
       (ffmpeg
           .input(in_filename)
@@ -41,6 +45,7 @@ def get_mean_max(in_filename):
     )
     output = p.communicate()[1].decode('utf-8')
     lines = output.splitlines()
+    print(lines)
 
     for line in lines:
         mean_volume_match = mean_volume_re.search(line)
@@ -53,4 +58,4 @@ def detect_voice() -> bool:
     pass
 
 if __name__ == "__main__":
-    get_mean_max("../input-video/mine.mkv")
+    get_mean_max("../TD/VODS/sanch.mp4")
