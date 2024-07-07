@@ -22,55 +22,64 @@ from base.clip_object import Clip
 from clip_ranker import Ranker
 from icecream import ic
 from frame_extraction.utils import combine_select_output_videos_into_video, concat_demuxer_method
-
+import pstats
+import cProfile
 
 
 if __name__ == "__main__":
-    in_filename='../TD/VODS/sanch.mp4',
-    silence_threshold=-10,
-    silence_duration=3,
-    clip_file = "../output-video/"
-    out_pattern = "../output-video/video{}.mp4"
+    with cProfile.Profile() as profile:
 
-    if not os.path.exists(clip_file):
-        raise TypeError("Path not found")
-    
-    #assuming we called the clean_chunk_times() already for the output-video file to be full of clips
-    split_audio(
-        in_filename='../TD/VODS/sanch.mp4',
         silence_threshold=-10,
         silence_duration=3,
-        out_pattern=out_pattern
-    )
+        clip_file = "../output-video/"
+        out_pattern = "../output-video/video{}.mp4"
 
-    clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
-    clips_points = []
-    ranker = Ranker()
+        if not os.path.exists(clip_file):
+            raise TypeError("Path not found")
 
-    for clip in clips_filename:
-        clip_obj = Clip(path=clip)
+        # assuming we called the clean_chunk_times() already for the output-video file to be full of clips
+        split_audio(
+            in_filename='../input-video/demo_valorant.mov',
+            silence_threshold=-16,
+            silence_duration=3,
+            out_pattern=out_pattern
+        )
 
-        # TODO: we can make it so they save the data into a dict so we can cache the frame
+        clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+        clips_points = []
+        ranker = Ranker()
 
-        ranker.load_clip(clip_obj)
-        ranker.run()
-        clips_points.append((clip, ranker.get_points()))
+        ic(clips_filename)
 
-    # we need to create a way to scale points based on durations
-    # clips that are 2 seconds long probably should not have high clip value as its shorter meaning
-    # for clips to reach the same level of point it probably that clip had the crosshair over something interesting
+        for clip in clips_filename:
+            clip_obj = Clip(path=clip)
 
-    values = 0
-    for x in clips_points:
-        values += x[1]
+            # TODO: we can make it so they save the data into a dict so we can cache the frame
 
-    avg = values / len(clips_points)
-    selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
+            ranker.load_clip(clip_obj)
+            ranker.run()
+            clips_points.append((clip, ranker.get_points()))
+
+        # we need to create a way to scale points based on durations
+        # clips that are 2 seconds long probably should not have high clip value as its shorter meaning
+        # for clips to reach the same level of point it probably that clip had the crosshair over something interesting
+
+        values = 0
+        for x in clips_points:
+            values += x[1]
+
+        ic(clips_points)
+        avg = values / len(clips_points)
 
 
-    ic(selected_clips)
-    concat_demuxer_method(selected_clips)
-    # for clip in selected_clips:
+        selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
 
 
+        ic(selected_clips)
+        concat_demuxer_method(selected_clips)
+        # for clip in selected_clips:
 
+
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    results.print_stats(20)

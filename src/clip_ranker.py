@@ -10,6 +10,9 @@ from sklearn.cluster import KMeans
 from collections import Counter
 import os
 
+from icecream import ic
+from numba import jit, cuda
+
 
 
 class Ranker:
@@ -58,6 +61,9 @@ class Ranker:
     self.action_points : int = 0
 
   #will split the video into frames every .5 second assuming a 60 fps video
+  #largest contributor to time issues
+  #change to numba function -> parr + gpu function for speed?
+  @jit(nopython=True, target_backend='cuda')
   def load_clip(self, clip : Clip):
     self.clear()
 
@@ -66,7 +72,6 @@ class Ranker:
     self.constant_fps = cap.get(cv2.CAP_PROP_FPS)
 
     # seconds = round(self.constant_frames / self.constant_fps)
-
     c = 0
     while cap.isOpened():
       ret, frame = cap.read()
@@ -81,19 +86,16 @@ class Ranker:
 
 
 
+  #Note, its better to have a lower blur inorder to see more details, at 11,11 we loss orb details and it starts not noticing players
   def simplify_frames(self):
     # region =  np.array([[100, 100],[1600, 100],[1600,800],[100, 800]], np.int32)
 
     for frame in self.frames:
-      # processedImage = crop_viewable_region(img=frame, region=[region])
+      processedImage = cv2.GaussianBlur(frame, (5, 5),0)
       processedImage = crop_image_crosshair(img=frame)
-      processedImage = cv2.cvtColor(processedImage, cv2.COLOR_BGR2GRAY)
-
-      #Note, its better to have a lower blur inorder to see more details, at 11,11 we loss orb details and it starts not noticing players
-      processedImage = cv2.GaussianBlur(processedImage, (5, 5),0)
-
-      #after applying and removing excess screen we can begin processing the frames
-      self.processed_frames.append(processedImage)
+      self.processed_frames_color.append(processedImage)
+      processedImageNoColor = cv2.cvtColor(processedImage, cv2.COLOR_BGR2GRAY)
+      self.processed_frames.append(processedImageNoColor)
 
 
   """
@@ -127,52 +129,45 @@ class Ranker:
 
 
 
-
   #if we calculate the dom colors within the range of the screen, we can determine when we see players or is looking at interesting objects
   def color_dom_processing(self, frame):
-    small_frame = cv2.resize(frame, (0, 0), fx=0.1, fy=0.1)
-    # Reshape the image to be a list of pixels
-    pixels = small_frame.reshape((-1, 3))
-    # Cluster the pixel intensities
+    pixels = frame.reshape((-1, 3))
     kmeans = KMeans(n_clusters=3)
     kmeans.fit(pixels)
-    # Get the number of pixels in each cluster
     counts = Counter(kmeans.labels_)
-    # Sort to find the most popular colors
     center_colors = kmeans.cluster_centers_
     ordered_colors = [center_colors[i] for i in counts.keys()]
     self.processed_frames_color_dom.append(ordered_colors)
 
     return ordered_colors
 
-
-  #the domaniant colors will almost 90% be the colors of the envoirnment, hence I believe its resonable to take the first and last as the lower bounds
-  #this way we can exclude a good about of the terrain of the start
-  def color_threshold_processing(self):
-
-    for frame in self.frames:
-      process_frame = cv2.GaussianBlur(frame, (5,5), 0)
-      dom_colors = self.color_dom_processing(frame=process_frame)
-
-      hsv_frame = cv2.cvtColor(process_frame, cv2.COLOR_BGR2HSV)
-      # Define range of a color in HSV
-      lower_bound = np.array(dom_colors[0])
-      upper_bound = np.array(dom_colors[-1])
-      # Threshold the HSV image to get only desired colors
-      mask = cv2.inRange(hsv_frame, lower_bound, upper_bound)
-      inverse_mask = cv2.bitwise_not(mask)
-
-      self.processed_frames_color_threshold.append(inverse_mask)
-
-
   #wanted to see if this was possible to try and threshold the domaniant colors ina  gray image, the output wasn't soo good but it's okay
-
   def color_blacknwhite_threshold_processing(self):
     for frame in self.processed_frames:
       dom_colors = self.color_dom_processing(frame=frame)
 
       _, thresh = cv2.threshold(frame, luminosity_method(dom_colors[0]), luminosity_method(dom_colors[1]), cv2.THRESH_BINARY)
       self.processed_frames_threshold.append(thresh)
+
+
+  #the domaniant colors will almost 90% be the colors of the envoirnment, hence I believe its resonable to take the first and last as the lower bounds
+  #this way we can exclude a good about of the terrain of the start
+  def color_threshold_processing(self):
+    # processedImage => crosshair focus
+    for frame in self.processed_frames_color:
+      dom_colors = self.color_dom_processing(frame=frame)
+
+      # Define range of a color in HSV
+      lower_bound = np.array(dom_colors[0])
+      upper_bound = np.array(dom_colors[-1])
+      # Threshold the HSV image to get only desired colors
+      mask = cv2.inRange(frame, lower_bound, upper_bound)
+      # inverse_mask = cv2.bitwise_not(mask)
+
+      p = percentage_of_white_pixels(mask) * self.action_weight
+
+      self.action_points += p
+      self.processed_frames_color_threshold.append(mask)
 
   def color_processing(self):
     self.color_threshold_processing()
@@ -200,56 +195,17 @@ class Ranker:
     self.threshold()
     self.color_processing()
 
-    self.data = zip_longest(
-      self.processed_frames,
-      self.processed_frames_color,
-      self.processed_frames_color_dom,
-      self.processed_frames_threshold,
-      self.processed_frames_color_threshold,
-      fillvalue="?"
-    )
-
-
-
-  #test
-
+    # self.data = zip_longest(
+    #   self.processed_frames,
+    #   self.processed_frames_color,
+    #   self.processed_frames_color_dom,
+    #   self.processed_frames_threshold,
+    #   self.processed_frames_color_threshold,
+    #   fillvalue="?"
+    # )
 
   def get_points(self):
     return self.action_points
 
-
     # self.color_blacknwhite_threshold_processing()
     # Add more processing steps as needed
-
-if __name__ == "__main__":
-  print("Testing Rank Class")
-
-  #Testing Clipping
-  clip_ranker = Ranker()
-  # clip1 = Clip("../output-video/video49.mp4")
-  # clip_ranker.load_clip(clip=clip1)
-  # clip_ranker.run()
-
-  # print(clip_ranker.processed_frames)
-  # save_out_frames(clip_ranker.processed_frames, "process_frames")
-
-
-  #Testing Frame
-  # frame_path = "./frame_extraction/in_frame/demo2.png"
-  # frame_path1 ="./frame_extraction/in_frame/demo3.jpg"
-  # clip_ranker.load_frame(frame_path=frame_path)
-  # clip_ranker.load_frame(frame_path=frame_path1)
-
-
-  #video 78 = 3386.9422222222233
-  #video 25 = 2291.168888888889
-  #video 54 = 114.755
-
-  video_file = "../output-video/video015.mp4"
-  clip1 = Clip(path=video_file)
-  clip_ranker.load_clip(clip1)
-  clip_ranker.run()
-
-  save_out_frames(clip_ranker.processed_frames_threshold, "process_frames_threshold")
-  combine_output_frames_into_video()
-

@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 
+from icecream import ic
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__file__)
@@ -103,13 +104,15 @@ def get_clean_chunk_times(in_filename, silence_threshold, silence_duration, seco
 
     silence_intervals = get_chunk_times(in_filename=in_filename, silence_threshold=silence_threshold, silence_duration=silence_duration)
 
+    ic(silence_intervals)
+
     previous_end = 0
     for i, (start_time, end_time) in enumerate(silence_intervals):
         if i == 0:
             previous_end = end_time
             continue
 
-        if start_time - previous_end <= seconds_between_clips_varriance:
+        if start_time - previous_end >= seconds_between_clips_varriance:
             silence_intervals[i - 1] = silence_intervals[i - 1] + silence_intervals[i]
             silence_intervals.remove(silence_intervals[i])
 
@@ -187,16 +190,16 @@ def split_audio(
     end_time=None,
     verbose=False,
 ):
-    chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, 60)
-    print(chunk_times)
+    chunk_times = get_clean_chunk_times(in_filename, silence_threshold, silence_duration, seconds_between_clips_varriance=2)
+    ic(chunk_times)
+
     for i, (start_time, end_time) in enumerate(chunk_times):
 
         try:
-          time = end_time - start_time #no clip longer than 30 secs and less than 0 seconds
-          print(time)
-          if time < 30 and int(time) > 0:
+          time = round(end_time - start_time, 2) #no clip longer than 30 secs and less than 0 seconds
+          ic(time)
+          if time < 30 and int(time) > 5:
             if 0 < i or i < 10:
-                print("hithit")
                 out_filename_tail = str(0) + str(i)
                 out_filename = out_pattern.format(out_filename_tail)
             else:
@@ -230,6 +233,13 @@ if __name__ == '__main__':
         in_filename='../TD/VODS/sanch.mp4',
         silence_threshold=-10,
         silence_duration=3,
+    )
+
+    get_clean_chunk_times(
+        in_filename='../TD/VODS/sanch.mp4',
+        silence_threshold=-10,
+        silence_duration=3,
+        seconds_between_clips_varriance=60
     )
 
     print(c)
