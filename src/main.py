@@ -26,7 +26,32 @@ import pstats
 import cProfile
 
 
-if __name__ == "__main__":
+def test_one_clip():
+    with cProfile.Profile() as profile:
+        clip_file = "../output-video/"
+        if not os.path.exists(clip_file):
+            raise TypeError("Path not found")
+
+        clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+        clips_points = []
+        ranker = Ranker()
+
+        ic(clips_filename)
+
+        clip_obj = Clip(path=clips_filename[0])
+
+        # TODO: we can make it so they save the data into a dict so we can cache the frame
+
+        ranker.load_clip_opti(clip_obj)
+        clips_points.append((clips_filename[0], ranker.get_points()))
+        ic(clips_points)
+
+
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    results.print_stats(20)
+
+def test_multi_clip():
     with cProfile.Profile() as profile:
 
         silence_threshold=-10,
@@ -37,13 +62,13 @@ if __name__ == "__main__":
         if not os.path.exists(clip_file):
             raise TypeError("Path not found")
 
-        # assuming we called the clean_chunk_times() already for the output-video file to be full of clips
-        split_audio(
-            in_filename='../input-video/demo_valorant.mov',
-            silence_threshold=-16,
-            silence_duration=3,
-            out_pattern=out_pattern
-        )
+        # # assuming we called the clean_chunk_times() already for the output-video file to be full of clips
+        # split_audio(
+        #     in_filename='../input-video/demo_valorant.mov',
+        #     silence_threshold=-16,
+        #     silence_duration=3,
+        #     out_pattern=out_pattern
+        # )
 
         clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
         clips_points = []
@@ -56,8 +81,7 @@ if __name__ == "__main__":
 
             # TODO: we can make it so they save the data into a dict so we can cache the frame
 
-            ranker.load_clip(clip_obj)
-            ranker.run()
+            ranker.load_clip_opti(clip_obj)
             clips_points.append((clip, ranker.get_points()))
 
         # we need to create a way to scale points based on durations
@@ -73,13 +97,23 @@ if __name__ == "__main__":
 
 
         selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
-
+        ic(avg)
 
         ic(selected_clips)
         concat_demuxer_method(selected_clips)
-        # for clip in selected_clips:
 
 
     results = pstats.Stats(profile)
     results.sort_stats(pstats.SortKey.TIME)
     results.print_stats(20)
+
+
+def output_all_videos_into_mp4():
+    clip_file = "../output-video/"
+    clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+    ic(clips_filename)
+    concat_demuxer_method(clips_filename)
+
+
+if __name__ == "__main__":
+    test_multi_clip()

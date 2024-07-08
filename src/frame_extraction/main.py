@@ -108,7 +108,6 @@ def save_out_frames(images, pattern : str):
   remove_all_contents_output_frame()
   for image in images:
     out_file = os.path.join(current_dir, "frame_extraction", "out_frame", "{}{}.png".format(pattern, str(c)))
-    print("outfile", out_file)
     if not cv2.imwrite(out_file, image):
       raise Exception("Could not write image")
 

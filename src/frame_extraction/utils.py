@@ -23,7 +23,7 @@ def combine_output_frames_into_video(frame_rate : int = 60):
 
   input_video_path = './frame_extraction/out_frame/'
 
-  
+
   fourcc = cv2.VideoWriter_fourcc(*'mp4v')
   output_video_path = '../processed-output-videos'
 
@@ -72,7 +72,7 @@ def concat_demuxer_method(clips : list):
       (
         ffmpeg
           .input("tmp_file.txt", safe=0, f="concat")
-          .output("output_test.mp4")
+          .output("test.mp4", vcodec="copy")
           .overwrite_output()
           .compile()
       )
@@ -121,10 +121,6 @@ def get_files_sorted(path : str):
 
   if not os.path.exists(path):
     raise TypeError("Path not found.")
-
-
-
-
 
 if __name__ == "__main__":
   combine_output_frames_into_video()

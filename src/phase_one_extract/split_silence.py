@@ -198,7 +198,7 @@ def split_audio(
         try:
           time = round(end_time - start_time, 2) #no clip longer than 30 secs and less than 0 seconds
           ic(time)
-          if time < 30 and int(time) > 5:
+          if time < 10 and int(time) > 3:
             if 0 < i or i < 10:
                 out_filename_tail = str(0) + str(i)
                 out_filename = out_pattern.format(out_filename_tail)
@@ -206,7 +206,9 @@ def split_audio(
                 out_filename = out_pattern.format(i, i=i)
 
             _makedirs(os.path.dirname(out_filename))
+            ic(out_filename)
 
+            
             logger.info('{}: start={:.02f}, end={:.02f}, duration={:.02f}'.format(out_filename, start_time, end_time,
                 time))
             _logged_popen(
@@ -229,19 +231,16 @@ if __name__ == '__main__':
     # split_audio(**kwargs)
 
 
-    c = split_audio(
-        in_filename='../TD/VODS/sanch.mp4',
-        silence_threshold=-10,
-        silence_duration=3,
+    # c = split_audio(
+    #     in_filename='../TD/VODS/sanch.mp4',
+    #     silence_threshold=-10,
+    #     silence_duration=3,
+    # )
+
+    split_audio(
+        in_filename='../TD/VODS/daph180.mp4',
+        silence_threshold=-30,
+        silence_duration=0.5,
+        out_pattern='../output-video/video{}.mp4'
     )
 
-    get_clean_chunk_times(
-        in_filename='../TD/VODS/sanch.mp4',
-        silence_threshold=-10,
-        silence_duration=3,
-        seconds_between_clips_varriance=60
-    )
-
-    print(c)
-    print("---")
-    print(len(c))

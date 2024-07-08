@@ -13,6 +13,7 @@ import os
 from icecream import ic
 from numba import jit, cuda
 
+from base.video_stream import VideoStream
 
 
 class Ranker:
@@ -34,7 +35,7 @@ class Ranker:
 
     self.action_weight : int = 1
     self.action_points : int = 0
-
+    self.total_action_points : int = 0
     self.data = None
 
   #this should be in the clip object
@@ -58,15 +59,48 @@ class Ranker:
     self.processed_frames_color_dom = []
 
     self.action_weight : int = 1
-    self.action_points : int = 0
+
 
   #will split the video into frames every .5 second assuming a 60 fps video
   #largest contributor to time issues
   #change to numba function -> parr + gpu function for speed?
-  @jit(nopython=True, target_backend='cuda')
-  def load_clip(self, clip : Clip):
+
+
+  def load_clip_opti(self, clip : Clip):
     self.clear()
 
+    cv_color = cv2.COLOR_YUV2RGB_I420       # OpenCV converts YUV frames to RGB
+
+    if os.path.exists(clip.get_path()):
+
+      try:
+        video = VideoStream(path=clip.get_path())
+        video.open_stream()
+        frames = 0
+        ic(clip.get_path())
+        while True:
+            eof, frame = video.read()
+            if eof: break
+            frames += 1
+            #only proccess every 30 frames to reduce work
+            # ic(frame)
+            if frames % 30:
+              self.frames.append(frame)
+
+              arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0])
+              processedImage = cv2.GaussianBlur(arr, (5, 5),0)
+              processedImage = crop_image_crosshair(img=processedImage)
+              self.by_frame_threshold(processedImage)
+              # color_image = cv2.cvtColor(processedImage, cv_color)
+        self.run()
+      except:
+        pass
+
+
+  def load_clip(self, clip : Clip):
+    cv_color = cv2.COLOR_YUV2RGB_I420       # OpenCV converts YUV frames to RGB
+
+    self.clear()
     cap = cv2.VideoCapture(clip.get_path())
     self.constant_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
     self.constant_fps = cap.get(cv2.CAP_PROP_FPS)
@@ -78,6 +112,14 @@ class Ranker:
       if ret:
         if c % (self.constant_fps * 2):
           self.frames.append(frame)
+          processedImage = cv2.GaussianBlur(frame, (5, 5),0)
+          processedImage = crop_image_crosshair(img=processedImage)
+          self.processed_frames_color.append(processedImage)
+
+          #to gray
+          uncolor_image = cv2.cvtColor(processedImage, cv2.COLOR_BGR2GRAY)
+          self.processed_frames.append(uncolor_image)
+
       else:
         print("Video ended break...")
         cap.release()
@@ -96,7 +138,6 @@ class Ranker:
       self.processed_frames_color.append(processedImage)
       processedImageNoColor = cv2.cvtColor(processedImage, cv2.COLOR_BGR2GRAY)
       self.processed_frames.append(processedImageNoColor)
-
 
   """
 
@@ -178,22 +219,27 @@ class Ranker:
       self.processed_frames_edge.append(edges)
 
 
+
+  def by_frame_threshold(self, frame):
+    _, thresh = cv2.threshold(frame, 170, 255, cv2.THRESH_BINARY)
+    self.action_points = percentage_of_white_pixels(thresh) * self.action_weight
+    self.total_action_points += self.action_points
+
   #after experimentating 200 is a pretty good threshold since it cuts out a lot noise and effects
   # @ 170 we still see effects such as brim smokes, likely need to tune per game but we will focus on Valorant for now
   def threshold(self):
     for frame in self.processed_frames:
         _, thresh = cv2.threshold(frame, 170, 255, cv2.THRESH_BINARY)
-        self.processed_frames_threshold.append(thresh)
-
-        #in the future we can change the action weight var to change the type of video we produce...
-        self.action_points += percentage_of_white_pixels(thresh) * self.action_weight
+        self.action_points = percentage_of_white_pixels(thresh) * self.action_weight
+        self.total_action_points += self.action_points
 
   def run(self):
     from itertools import zip_longest
-
-    self.simplify_frames()
     self.threshold()
-    self.color_processing()
+
+
+
+    # self.color_processing()
 
     # self.data = zip_longest(
     #   self.processed_frames,
@@ -204,8 +250,82 @@ class Ranker:
     #   fillvalue="?"
     # )
 
+  def get_total_points(self):
+    return self.total_action_points
+
   def get_points(self):
     return self.action_points
 
-    # self.color_blacknwhite_threshold_processing()
-    # Add more processing steps as needed
+
+
+import cProfile
+import pstats
+import glob
+
+def test_opti():
+    with cProfile.Profile() as profile:
+      clip_file = "../output-video/"
+
+      if not os.path.exists(clip_file):
+          raise TypeError("Path not found")
+
+      clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+      clips_points = []
+      ranker = Ranker()
+
+      ic(clips_filename[0])
+
+
+      for clip in clips_filename:
+        clip_obj = Clip(path=clip)
+        ranker.load_clip_opti(clip_obj)
+        clips_points.append((clip, ranker.get_total_points()))
+
+      ic(clips_points)
+      avg = ranker.get_total_points() / len(clips_filename)
+      ic(avg)
+      selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
+      ic(selected_clips)
+
+    save_out_frames(images=ranker.processed_frames, pattern="opti")
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    results.print_stats(20)
+
+    print(len(ranker.processed_frames))
+
+def test():
+    with cProfile.Profile() as profile:
+      silence_threshold=-10,
+      silence_duration=3,
+      clip_file = "../output-video/"
+      out_pattern = "../output-video/video{}.mp4"
+
+      if not os.path.exists(clip_file):
+          raise TypeError("Path not found")
+
+
+      clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
+      clips_points = []
+      ranker = Ranker()
+
+      ic(clips_filename[0])
+
+
+      clip_obj = Clip(path=clips_filename[0])
+      ranker.load_clip(clip_obj)
+      ranker.run()
+      clips_points.append((clips_filename[0], ranker.get_points()))
+
+    save_out_frames(images=ranker.processed_frames, pattern="opti")
+    results = pstats.Stats(profile)
+    results.sort_stats(pstats.SortKey.TIME)
+    results.print_stats(20)
+
+    print(len(ranker.processed_frames))
+
+
+
+if __name__ == "__main__":
+
+  test_opti()
