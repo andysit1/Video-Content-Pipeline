@@ -51,18 +51,21 @@ def combine_output_frames_into_video(frame_rate : int = 60):
 
 
 def fix_window_path(path: str):
-  return path.replace("\\", "/")
+  return path.replace('\\', '/')
 
 
 #ref: https://stackoverflow.com/questions/7333232/how-to-concatenate-two-mp4-files-using-ffmpeg
 def concat_demuxer_method(clips : list):
   # for clip in clips:
   with open('tmp_file.txt', 'w+') as f:
-    for clip in clips:
-      path = fix_window_path(clip[0])
-      ic(path)
+    try:
+      file_paths = [path.replace('\\', '/') for path in clips]
+    except:
+      file_paths = [path[0].replace('\\', '/') for path in clips]
 
-      f.write("file {}\n".format(os.path.join(path)))
+    ic(file_paths)
+    for clip in file_paths:
+      f.write("file {}\n".format(os.path.join(clip)))
 
   f.close()
 
@@ -72,7 +75,7 @@ def concat_demuxer_method(clips : list):
       (
         ffmpeg
           .input("tmp_file.txt", safe=0, f="concat")
-          .output("test.mp4", vcodec="copy")
+          .output("test_imaqt.mp4", vcodec="copy")
           .overwrite_output()
           .compile()
       )

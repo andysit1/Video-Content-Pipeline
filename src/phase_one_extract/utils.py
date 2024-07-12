@@ -40,7 +40,7 @@ def get_mean_max(in_filename):
           .filter('volumedetect')
           .output('-', format='null')
           .compile()
-      ) + ['-nostats'],  # FIXME: use .nostats() once it's implemented in ffmpeg-python.
+      ) + ['-nostats'],
       stderr=subprocess.PIPE
     )
     output = p.communicate()[1].decode('utf-8')
@@ -58,4 +58,4 @@ def detect_voice() -> bool:
     pass
 
 if __name__ == "__main__":
-    get_mean_max("../TD/VODS/sanch.mp4")
+    get_mean_max("../TD/VODS/daph180.mp4")

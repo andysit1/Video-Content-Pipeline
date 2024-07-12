@@ -65,7 +65,7 @@ class Ranker:
   #largest contributor to time issues
   #change to numba function -> parr + gpu function for speed?
 
-
+  #TODO add multiprocesing here
   def load_clip_opti(self, clip : Clip):
     self.clear()
 
@@ -74,7 +74,7 @@ class Ranker:
     if os.path.exists(clip.get_path()):
 
       try:
-        video = VideoStream(path=clip.get_path())
+        video = VideoStream(path=clip.get_path()) #load yuv by default
         video.open_stream()
         frames = 0
         ic(clip.get_path())
@@ -90,9 +90,11 @@ class Ranker:
               arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0])
               processedImage = cv2.GaussianBlur(arr, (5, 5),0)
               processedImage = crop_image_crosshair(img=processedImage)
+
+              #process video here.
               self.by_frame_threshold(processedImage)
+
               # color_image = cv2.cvtColor(processedImage, cv_color)
-        self.run()
       except:
         pass
 
@@ -167,9 +169,6 @@ class Ranker:
 
 
 
-
-
-
   #if we calculate the dom colors within the range of the screen, we can determine when we see players or is looking at interesting objects
   def color_dom_processing(self, frame):
     pixels = frame.reshape((-1, 3))
@@ -217,7 +216,6 @@ class Ranker:
     for frame in self.processed_frames:
       edges = cv2.Canny(frame, 100, 200)
       self.processed_frames_edge.append(edges)
-
 
 
   def by_frame_threshold(self, frame):
@@ -326,6 +324,9 @@ def test():
 
 
 
-if __name__ == "__main__":
 
-  test_opti()
+
+
+
+# if __name__ == "__main__":
+

@@ -39,9 +39,6 @@ def test_one_clip():
         ic(clips_filename)
 
         clip_obj = Clip(path=clips_filename[0])
-
-        # TODO: we can make it so they save the data into a dict so we can cache the frame
-
         ranker.load_clip_opti(clip_obj)
         clips_points.append((clips_filename[0], ranker.get_points()))
         ic(clips_points)
@@ -78,9 +75,6 @@ def test_multi_clip():
 
         for clip in clips_filename:
             clip_obj = Clip(path=clip)
-
-            # TODO: we can make it so they save the data into a dict so we can cache the frame
-
             ranker.load_clip_opti(clip_obj)
             clips_points.append((clip, ranker.get_points()))
 
@@ -109,11 +103,22 @@ def test_multi_clip():
 
 
 def output_all_videos_into_mp4():
-    clip_file = "../output-video/"
+    clip_file = "E:\Videos\Medal"
     clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
     ic(clips_filename)
     concat_demuxer_method(clips_filename)
 
 
+
 if __name__ == "__main__":
-    test_multi_clip()
+
+    # split_audio(
+    #     in_filename='../TD/VODS/imaqtpie.mp4',
+    #     silence_threshold=-13,
+    #     silence_duration=0.5,
+    #     out_pattern='../output-video/video{}.mp4'
+    # )
+
+
+    files = glob.glob("../output-video/*")
+    concat_demuxer_method(files)
