@@ -1,5 +1,5 @@
 from .modules.pipeline_builder import PipelineEngine
-from .stages.test_stage import FillerPipe
+from .pipes.test_stage import FillerPipe
 
 def main():
     # Start the game loop
