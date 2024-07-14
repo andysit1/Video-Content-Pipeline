@@ -60,18 +60,6 @@ class OpenCVAggregate:
         self.logger.debug(f"All cropped images: {cropped}")
         return cropped
 
-    def remove_all_contents_output_frame(self):
-        input_video_path = './frame_extraction/out_frame/'
-
-        if os.path.exists(input_video_path):
-            frames = glob.glob(os.path.join(input_video_path, "*png"))
-
-            for frame in frames:
-                os.remove(frame)
-                self.logger.debug(f"Removed frame: {frame}")
-        else:
-            raise FileNotFoundError("Input file not found.")
-
     def save_out_frames(self, images, pattern: str):
         self.logger.debug("Saving out frames")
         current_dir = os.path.dirname(os.path.dirname(__file__))
