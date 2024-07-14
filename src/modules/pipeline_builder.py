@@ -1,5 +1,11 @@
 """
 BRAINSTORM
+  -> Pain point
+    -> Folder everywhere
+    -> High mem/cpu usage
+    -> annoying setup
+    -> hard to add features cause unorganized
+
   -> goal to structure and refactor the code ina way that allows us to build ontop of what we have without thinking about too much code at once
     -> the code is built based one what I felt like doing and going with the flow but now that we can output/input good results we should clean itup as we
     create harder and more complex features
@@ -22,18 +28,22 @@ Type of Stages := Download VOD, Data Cache, Data process, Analyze Data, Action S
 
 """
 
+from icecream import ic
+
 #Future -> might need to refactor this code so we better support different functions / use per stage but it's okay for a start
-class Stage():
+class Pipe():
     def __init__(self, engine):
         self.engine = engine
 
     def on_run(self):
         pass
 
+    def on_done(self):
+        pass
+
     def on_error(self):
         #base on the location we can Ok it or return it to the pipeline to decide where to go or change output
         pass
-
 
 class Machine:
     """
@@ -43,8 +53,8 @@ class Machine:
         """
         Initialize a Machine object.
         """
-        self.current : Stage = None
-        self.next_state : Stage = None
+        self.current = None
+        self.next_state = None
 
     def update(self):
         """
@@ -57,6 +67,8 @@ class Machine:
 
 class PipelineEngine:
     def __init__(self):
+        self.machine = Machine()
+        self.running = True
         self.DEBUG = False
         self.PERFORMANCE = False
 
@@ -67,12 +79,11 @@ class PipelineEngine:
     def on_change(self):
         pass
 
-
     def loop(self):
+        ic("looping")
         while self.running:
-            self.machine.current.run()
-
-
+            self.machine.update()
+            self.machine.current.on_run() #it should really run each pipe just once unless we want to do multiple extractions
 
     def run(self, state):
         self.machine.current = state
