@@ -50,14 +50,14 @@ class FileHandleComponent:
     def write_file(self, path, content: str) -> None:
         """Write the provided content to the file."""
         with open(path, 'w') as file:
-            file.write(content)
+            file.write(str(content))
 
     def append_to_file(self, path, content: str) -> None:
         """Append the provided content to the file."""
         with open(path, 'a+') as file:
             file.write(content)
 
-    def read_lines(self, path) -> list:
+    def read_lines(self, path) -> list[str]:
         """Read the file and return a list of lines."""
         with open(path, 'r') as file:
             return file.readlines()
@@ -65,7 +65,7 @@ class FileHandleComponent:
     def write_lines(self, path, lines: list) -> None:
         """Write a list of lines to the file."""
         with open(path, 'w') as file:
-            file.writelines(line + '\n' for line in lines)
+            file.writelines(str(line) + '\n' for line in lines)
 
     def file_exists(self, path) -> bool:
         """Check if the file exists."""

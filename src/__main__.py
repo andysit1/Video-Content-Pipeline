@@ -8,9 +8,9 @@ def main():
 
     engine = PipelineEngine()
 
-    in_filename = "E:/Projects/2024/Video-Content-Pipeline/input-video/demo_valorant.mov"
+    in_filename = "E:/Projects/2024/Video-Content-Pipeline/TD/VODS/soda.mp4"
     engine.payload['in_filename'] = in_filename
-    engine.payload['video_name'] = 'ValorantDemoTest'
+    engine.payload['video_name'] = 'soda'
     engine.payload['is_community'] = False
     engine.run(EntryPipe(engine=engine))
 

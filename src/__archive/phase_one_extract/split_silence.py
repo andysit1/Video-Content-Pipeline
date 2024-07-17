@@ -231,12 +231,16 @@ if __name__ == '__main__':
     #     silence_threshold=-10,
     #     silence_duration=3,
     # )
+    in_filename = "E:/Projects/2024/Video-Content-Pipeline/TD/VODS/imaqtpie.mp4"
 
-    split_audio(
-        in_filename='../TD/VODS/imaqtpie.mp4',
+    chunks = get_clean_chunk_times(
+        in_filename=in_filename,
         silence_threshold=-13,
         silence_duration=0.5,
-        out_pattern='../output-video/video{}.mp4'
+        seconds_between_clips_varriance=3
     )
+
+    print(chunks)
+
 
 

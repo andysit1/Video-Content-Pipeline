@@ -108,20 +108,21 @@ class FFMPEGAggregate(FileHandleComponent):
 
       return lines
 
-  def combine_videos_demuxer_method(self):
-      #cmd: ffmpeg -f concat -safe 0 -i tmp_file.txt -c copy output.mp4
+  def combine_videos_demuxer_method(self, out_filename):
+      print(out_filename)
+      #this place does not compile... whyyyyyyy
 
+      #cmd: ffmpeg -f concat -safe 0 -i tmp_file.txt -c copy output.mp4
       try:
-        self._logged_popen(
+        _logged_popen(
           (
             ffmpeg
-              .input("tmp_file.txt", safe=0, f="concat")
-              .output("test_imaqt.mp4", vcodec="copy")
+              .input('tmp_file.txt', safe=0, f="concat")
+              .output(out_filename, vcodec="copy")
               .overwrite_output()
               .compile()
           )
         ).communicate()
-
       except Exception as e:
         print("Error", e)
 

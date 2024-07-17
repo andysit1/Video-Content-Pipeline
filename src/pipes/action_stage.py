@@ -15,7 +15,7 @@ import os
 from icecream import ic
 from src.modules.pipeline_builder import Pipe
 from src.aggregate.ffmpeg_component import FFMPEGAggregate
-import re
+from .analyze_clip_stage import AnalyzeClipsPipe
 
 class ActionPipe(Pipe, FFMPEGAggregate):
     def __init__(self, engine):
@@ -37,37 +37,46 @@ class ActionPipe(Pipe, FFMPEGAggregate):
       return chunks
 
 
+    def if_videos_cliped(self) -> bool:
+       if self.file_exists(os.path.join(self.engine.payload['clips_out'], 'video00.mp4')):
+          return True
+       return False
+
     def split_into_clips(self):
-      chunk_times = self.get_chunk_data()
-      ic("Clipping {len(chunk_times} number of clips")
+      if not self.if_videos_cliped():
 
-      out_pattern = os.path.join(self.engine.payload['clips_out'], 'video{}.mp4')
+        chunk_times = self.get_chunk_data()
+        ic("Clipping {len(chunk_times} number of clips")
 
-      for i, chunk in enumerate(chunk_times):
-        start = chunk[0]
-        end = chunk[-1]
+        out_pattern = os.path.join(self.engine.payload['clips_out'], 'video{}.mp4')
+        # total_time = 0
 
-        time = round(end - start, 3)
-        ic(time)
+        for i, chunk in enumerate(chunk_times):
+          start = chunk[0]
+          end = chunk[-1]
 
-        if 0 < i or i < 10:
-            out_filename_tail = str(0) + str(i)
-            out_filename = out_pattern.format(out_filename_tail)
-        else:
-            out_filename = out_pattern.format(i, i=i)
+          time = round(end - start, 3)
+          # total_time += time
+          ic(time)
 
-        ic(out_filename)
+          if 0 < i or i < 10:
+              out_filename_tail = str(0) + str(i)
+              out_filename = out_pattern.format(out_filename_tail)
+          else:
+              out_filename = out_pattern.format(i, i=i)
 
-        self.split_video(
-           in_filename=self.engine.payload['in_filename'],
-           out_filename=out_filename,
-           start=start,
-           time=time
-        )
+          ic(out_filename)
 
+          self.split_video(
+            in_filename=self.engine.payload['in_filename'],
+            out_filename=out_filename,
+            start=start,
+            time=time
+          )
+        # self.append_to_file()
     def on_done(self):
       ic("Finished Pipeline")
-      self.engine.machine.current = None
+      self.engine.machine.current = AnalyzeClipsPipe(self.engine)
 
     def on_run(self):
       ic.enable()

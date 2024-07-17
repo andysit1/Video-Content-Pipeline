@@ -11,7 +11,7 @@ import glob
 import numpy as np
 import os
 
-from utils import percentage_of_white_pixels
+from .utils import percentage_of_white_pixels
 
 
 class OpenCVAggregate:
@@ -48,6 +48,11 @@ class OpenCVAggregate:
             img,
             cv2.COLOR_BGR2GRAY
         )
+
+    def do_binary_threshold(self, img):
+        _, thresh = cv2.threshold(img, 170, 255, cv2.THRESH_BINARY)
+        return percentage_of_white_pixels(thresh)
+
 
     def do_gaussian_blur(self, img : np.ndarray) -> np.ndarray:
         return cv2.GaussianBlur(

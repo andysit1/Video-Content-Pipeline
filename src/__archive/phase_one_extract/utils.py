@@ -58,4 +58,5 @@ def detect_voice() -> bool:
     pass
 
 if __name__ == "__main__":
-    get_mean_max("../TD/VODS/daph180.mp4")
+    in_filename = "E:/Projects/2024/Video-Content-Pipeline/input-video/demo_valorant.mov"
+    get_mean_max(in_filename)

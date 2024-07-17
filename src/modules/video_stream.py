@@ -1,7 +1,7 @@
 import ffmpeg
 from warnings import warn
 import re
-
+from icecream import ic
 # CREDITS TO RONINPAWN
 # https://github.com/roninpawn/ffmpeg_videostream/blob/master/ffmpeg_videostream.py
 # ----> REQUIRES ffmpeg.exe AND ffprobe.exe ADDED TO CALLING DIRECTORY <----
@@ -137,6 +137,8 @@ class VideoStream:
                 .output(stream, 'pipe:', format='rawvideo', pix_fmt=self._color)
                 .global_args(*global_args)
                 .run_async(**pipes))
+
+        ic(self._pipe)
 
     """
     .read()
