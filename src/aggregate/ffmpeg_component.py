@@ -7,6 +7,7 @@ from icecream import ic
 from filehandler_component import FileHandleComponent
 import ffmpeg
 import re
+import os
 import glob
 
 
@@ -22,9 +23,11 @@ import glob
 
 #FFMPEG uses a lot of files from find instances of vides to files we need it
 class FFMPEGAggregate(FileHandleComponent):
-  def __init__(self) -> None:
-      pass
+  def __init__(self, engine) -> None:
+      self.engine = engine
 
+      if self.engine:
+         raise ValueError("Engine does not exist")
 
   def _logged_popen(cmd_line, *args, **kwargs):
       ic('Running command: {}'.format(subprocess.list2cmdline(cmd_line)))
@@ -40,18 +43,6 @@ class FFMPEGAggregate(FileHandleComponent):
 
 
   def get_mean_max(self, in_filename) -> tuple:
-    #TODO/BUG these regex are not working need to debug them to fix...
-
-    # Regular expression for mean_volume
-    mean_volume_re = re.compile(r'mean_volume: (?P<mean_volume>-?\d+(\.\d+)?) dB')
-
-    # Regular expression for max_volume
-    max_volume_re = re.compile(r'max_volume: (?P<max_volume>-?\d+(\.\d+)?) dB')
-
-    # Regular expression for histogram entries
-    histogram_re = re.compile(r'histogram_(?P<db_level>\d+)db: (?P<count>\d+)')
-
-
 
     if not os.path.exists(in_filename):
         raise FileExistsError("path not found")
@@ -67,15 +58,7 @@ class FFMPEGAggregate(FileHandleComponent):
     )
     output = p.communicate()[1].decode('utf-8')
     lines = output.splitlines()
-    ic(lines)
-
-
-    for line in lines:
-        mean_volume_match = mean_volume_re.search(line)
-        max_volume_match = max_volume_re.search(line)
-        histogram_matches = histogram_re.findall(line)
-
-    print(mean_volume_match, max_volume_match, histogram_matches)
+    return lines
 
 
   def silence_detect(self, in_filename, silence_threshold, silence_duration, start_time=None, end_time=None):
@@ -110,7 +93,6 @@ class FFMPEGAggregate(FileHandleComponent):
 
   def combine_videos_demuxer_method(self):
       #cmd: ffmpeg -f concat -safe 0 -i tmp_file.txt -c copy output.mp4
-      filename = "____"
 
       try:
         self._logged_popen(

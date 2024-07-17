@@ -43,7 +43,7 @@ class OpenCVAggregate:
             return cropped_img
         return False
 
-    def change_color_to_BRG2GRAY(self, img : np.ndarray) -> np.ndarray:
+    def convert_to_gray(self, img : np.ndarray) -> np.ndarray:
         return cv2.cvtColor(
             img,
             cv2.COLOR_BGR2GRAY
@@ -76,7 +76,4 @@ class OpenCVAggregate:
 
         gray_img = self.change_color_to_BRG2GRAY(img)
         return percentage_of_white_pixels(self.do_canny_edge_detection(gray_img))
-
-
-
 

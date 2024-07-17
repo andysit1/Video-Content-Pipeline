@@ -106,25 +106,60 @@ class FileMaster(FileHandleComponent):
         else:
             return False
 
+    """
+
+    """
+
+    def start_community_bundle_files(self):
+        community_txt_cache = os.path.join(self.community_dir, 'text_cache')
+        community_clips = os.path.join(self.community_dir, 'clips')
+
+        ic(community_txt_cache)
+        ic(community_clips)
+
+        self.makedirs(community_clips)
+        self.makedirs(community_txt_cache)
+
+        self.engine.payload['cache_txt_out'] = community_txt_cache
+        self.engine.payload['clips_out'] = community_clips
+
+    def start_private_bundle_files(self):
+        private_txt_cache = os.path.join(self.private_dir, self.engine.payload['video_name'], 'text_cache')
+        private_clips = os.path.join(self.private_dir, self.engine.payload['video_name'], 'clips')
+
+        ic(private_txt_cache)
+        ic(private_clips)
+
+        self.makedirs(private_clips)
+        self.makedirs(private_txt_cache)
+
+        self.engine.payload['cache_txt_out'] = private_txt_cache
+        self.engine.payload['clips_out'] = private_clips
 
     #sets up the file given first flag
     def setup(self):
         if self.is_community():
             self.remove_all_contents_output_frame(self.community_dir)
+            self.start_community_bundle_files()
         else:
             to_make = os.path.join(self.private_dir, self.engine.payload['video_name'])
             ic(to_make)
             self.makedirs(to_make)
+            self.start_private_bundle_files()
+
+    
+
+"""
+    Test cases...
+"""
 
 
 
 import unittest
 from icecream import ic
-
-
-#testing basic functions
-#TODO Add testcases for more
 import unittest
+from unittest.mock import MagicMock
+import os
 
 class TestFileHandler(unittest.TestCase):
 
@@ -160,10 +195,6 @@ class TestFileHandler(unittest.TestCase):
         self.assertTrue(self.file_handler.file_exists(self.test_file_path))
         self.assertFalse(self.file_handler.file_exists('non_existent_file.txt'))
 
-
-import unittest
-from unittest.mock import MagicMock
-import os
 
 class TestFileMaster(unittest.TestCase):
     def setUp(self):
