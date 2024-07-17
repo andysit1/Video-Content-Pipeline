@@ -5,8 +5,10 @@ import sys
 import subprocess
 import ffmpeg
 from icecream import ic
-from filehandler_component import FileHandleComponent
 import ffmpeg
+
+
+from .filehandler_component import FileHandleComponent
 
 import re
 import os
@@ -88,6 +90,7 @@ class FFMPEGAggregate(FileHandleComponent):
       if p.returncode != 0:
           sys.stderr.write(output)
           sys.exit(1)
+          
       lines = output.splitlines()
       return lines
 
@@ -115,7 +118,7 @@ if __name__ == "__main__":
     ffmpeg_hand = FFMPEGAggregate(engine=None, debug=True)
     volume_detect_lines = ffmpeg_hand.get_mean_max(in_filename=in_filename)
     silence_detect_lines = ffmpeg_hand.silence_detect(
-                                                      in_filename=in_filename,
+                                                    in_filename=in_filename,
                                                       silence_threshold=-13,
                                                       silence_duration=0.5,
                                                     )

@@ -14,9 +14,10 @@ class FileHandleComponent:
         return file_path.replace('\\', '/')
 
     def makedirs(self, file_path : str):
-      ic("Created dir located {}".format(file_path))
       print(file_path)
-      os.makedirs(file_path, exist_ok=False)
+
+      os.makedirs(file_path, exist_ok=True)
+      ic("Created dir located {}".format(file_path))
 
       #DOCS: TODO: figure a good way to fix this issue future bug fix
         # except OSE rror:
@@ -81,8 +82,8 @@ class FileMaster(FileHandleComponent):
     def __init__(self, engine) -> None:
         self.engine = engine
         self.origin_dir : str = None
-        self.community_dir : str = os.path.join('..', 'output-video', 'community')
-        self.private_dir : str = os.path.join('..', 'output-video', 'private')
+        self.community_dir : str = os.path.join('.', 'output-video', 'community')
+        self.private_dir : str = os.path.join('.', 'output-video', 'private')
 
 
     """
@@ -138,6 +139,7 @@ class FileMaster(FileHandleComponent):
 
     #sets up the file given first flag
     def setup(self):
+
         if self.is_community():
             self.remove_all_contents_output_frame(self.community_dir)
             self.start_community_bundle_files()
@@ -147,7 +149,7 @@ class FileMaster(FileHandleComponent):
             self.makedirs(to_make)
             self.start_private_bundle_files()
 
-    
+
 
 """
     Test cases...
@@ -247,4 +249,3 @@ class TestFileMaster(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

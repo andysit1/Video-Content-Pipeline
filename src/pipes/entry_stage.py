@@ -1,8 +1,8 @@
 
 
-from modules.pipeline_builder import Pipe
-from data_cache_stage import DataCachePipe
-from aggregate.filehandler_component import FileMaster
+from src.modules.pipeline_builder import Pipe
+from src.pipes.data_cache_stage import DataCachePipe
+from src.aggregate.filehandler_component import FileMaster
 from icecream import ic
 
 
@@ -40,7 +40,7 @@ class EntryPipe(Pipe):
       self.debug_payload_variables()
       raise ValueError("Payload Value Error")
 
-    # check if dir exist
+    # check if path exist for input filename, cache txt_out, clips_outs
     if not self.file_master.path_exists(self.engine.payload['in_filename']):
       raise FileExistsError("File in_filename does not exists")
 
@@ -49,10 +49,6 @@ class EntryPipe(Pipe):
 
     if not self.file_master.path_exists(self.engine.payload['clips_out']):
       raise FileExistsError("File clips_out does not exists")
-
-    if not self.file_master.path_exists(self.engine.payload['video_name']):
-      raise FileExistsError("File video_name does not exists")
-
 
 
   #checks for requirements and variables incase
@@ -68,9 +64,7 @@ class EntryPipe(Pipe):
     self.on_done()
 
   def on_done(self):
-    next_pipe = DataCachePipe(self.engine)
-    self.engine.machine.next_state = next_pipe
-
+    self.engine.machine.next_state = DataCachePipe(self.engine)
 
   #should do nothing cause its the start. there should never be an error else something went terribly wrong
   def on_error(self):

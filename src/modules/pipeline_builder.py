@@ -94,8 +94,12 @@ class PipelineEngine:
         ic("looping")
         while self.running:
             self.machine.update()
-            self.machine.current.on_run() #it should really run each pipe just once unless we want to do multiple extractions
+            if self.machine.current:
+                self.machine.current.on_run() #it should really run each pipe just once unless we want to do multiple extractions
+            else:
+                self.running = False
 
+        print("Finished Pipeline Process")
     def run(self, state):
         self.machine.current = state
         self.loop()
