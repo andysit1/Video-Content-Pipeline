@@ -64,6 +64,18 @@ class FFMPEGAggregate(FileHandleComponent):
     lines = output.splitlines()
     return lines
 
+  def split_video(self, in_filename, out_filename, start, time):
+      _logged_popen(
+            (ffmpeg
+                .input(in_filename, ss=start, t=time)
+                .output(out_filename)
+                .overwrite_output()
+                .compile()
+            ),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ).communicate()
+
 
   def silence_detect(self, in_filename, silence_threshold, silence_duration, start_time=None, end_time=None):
 
