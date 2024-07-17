@@ -72,6 +72,17 @@ class PipelineEngine:
         self.DEBUG = False
         self.PERFORMANCE = False
 
+
+        #handles all the data each pipe should have...
+        self.payload = {
+            "is_community" : None,
+            "in_filename" : None, #video to process
+            "video_name" : None,
+            "cache_txt_out" : None, #datacache location
+            "clips_out" : None #where clips are stored location
+        }
+
+
     # should logs be stage dependant or pipeline dependent () maybe have both one for stage changes and one for stages functions?
     def save_logs(self):
         pass
