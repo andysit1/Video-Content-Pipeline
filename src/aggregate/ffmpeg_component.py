@@ -3,9 +3,11 @@
 
 import sys
 import subprocess
+import ffmpeg
 from icecream import ic
 from filehandler_component import FileHandleComponent
 import ffmpeg
+
 import re
 import os
 import glob
@@ -19,23 +21,20 @@ import glob
 """
 
 
-
+def _logged_popen(cmd_line, *args, **kwargs):
+    ic('Running command: {}'.format(subprocess.list2cmdline(cmd_line)))
+    return subprocess.Popen(cmd_line, *args, **kwargs)
 
 #FFMPEG uses a lot of files from find instances of vides to files we need it
 class FFMPEGAggregate(FileHandleComponent):
-  def __init__(self, engine) -> None:
+  def __init__(self, engine, debug=False) -> None:
       self.engine = engine
-
-      if self.engine:
+      if not self.engine and not debug:
          raise ValueError("Engine does not exist")
 
-  def _logged_popen(cmd_line, *args, **kwargs):
-      ic('Running command: {}'.format(subprocess.list2cmdline(cmd_line)))
-      return subprocess.Popen(cmd_line, *args, **kwargs)
-
-  def get_freeze_frames(self, in_filename):
-      #TODO/FEATURE: call the freeze frames to check bad
-      pass
+  # def get_freeze_frames(self, in_filename):
+  #     #TODO/FEATURE: call the freeze frames to check bad
+  #     pass
 
   def load_frames(self):
       files = glob.glob("./frame_extraction/in_frame/*")
@@ -47,15 +46,18 @@ class FFMPEGAggregate(FileHandleComponent):
     if not os.path.exists(in_filename):
         raise FileExistsError("path not found")
 
-    p = self._logged_popen(
-      (ffmpeg
+    cmd = (ffmpeg
           .input(in_filename)
           .filter('volumedetect')
           .output('-', format='null')
           .compile()
-      ) + ['-nostats'],
+        ) + ['-nostats']
+
+    p = _logged_popen(
+      cmd_line=cmd,
       stderr=subprocess.PIPE
     )
+
     output = p.communicate()[1].decode('utf-8')
     lines = output.splitlines()
     return lines
@@ -71,7 +73,7 @@ class FFMPEGAggregate(FileHandleComponent):
       if end_time is not None:
           input_kwargs['t'] = end_time - start_time
 
-      p = self._logged_popen(
+      p = _logged_popen(
         (ffmpeg
             .input(in_filename, **input_kwargs)
             .filter('silencedetect', n='{}dB'.format(silence_threshold), d=silence_duration)
@@ -87,8 +89,6 @@ class FFMPEGAggregate(FileHandleComponent):
           sys.stderr.write(output)
           sys.exit(1)
       lines = output.splitlines()
-
-      ic(lines)
       return lines
 
   def combine_videos_demuxer_method(self):
@@ -107,3 +107,18 @@ class FFMPEGAggregate(FileHandleComponent):
 
       except Exception as e:
         print("Error", e)
+
+
+if __name__ == "__main__":
+    #Test if the functions works
+    in_filename = "E:/Projects/2024/Video-Content-Pipeline/input-video/demo_valorant.mov"
+    ffmpeg_hand = FFMPEGAggregate(engine=None, debug=True)
+    volume_detect_lines = ffmpeg_hand.get_mean_max(in_filename=in_filename)
+    silence_detect_lines = ffmpeg_hand.silence_detect(
+                                                      in_filename=in_filename,
+                                                      silence_threshold=-13,
+                                                      silence_duration=0.5,
+                                                    )
+
+
+
