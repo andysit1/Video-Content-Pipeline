@@ -31,7 +31,7 @@ class DataCachePipe(Pipe, FileHandleComponent):
 
     if not self.file_exists(self.silence_detect):
       return False
-    
+
     #we should also check if the files had data inside
     return True
 
@@ -42,8 +42,8 @@ class DataCachePipe(Pipe, FileHandleComponent):
                                                 silence_threshold=-13,
                                                 silence_duration=0.5)
 
-      self.write_lines(self.volume_detect, mean_max_lines)
       self.write_lines(self.silence_detect, silence_lines)
+      self.write_lines(self.volume_detect, mean_max_lines)
 
     self.on_done()
 

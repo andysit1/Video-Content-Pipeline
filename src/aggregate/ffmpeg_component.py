@@ -90,8 +90,10 @@ class FFMPEGAggregate(FileHandleComponent):
       if p.returncode != 0:
           sys.stderr.write(output)
           sys.exit(1)
-          
+
       lines = output.splitlines()
+      ic(type(lines), lines)
+
       return lines
 
   def combine_videos_demuxer_method(self):

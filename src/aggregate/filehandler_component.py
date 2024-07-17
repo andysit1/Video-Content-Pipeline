@@ -54,7 +54,7 @@ class FileHandleComponent:
 
     def append_to_file(self, path, content: str) -> None:
         """Append the provided content to the file."""
-        with open(path, 'a') as file:
+        with open(path, 'a+') as file:
             file.write(content)
 
     def read_lines(self, path) -> list:
@@ -65,7 +65,7 @@ class FileHandleComponent:
     def write_lines(self, path, lines: list) -> None:
         """Write a list of lines to the file."""
         with open(path, 'w') as file:
-            file.writelines(lines)
+            file.writelines(line + '\n' for line in lines)
 
     def file_exists(self, path) -> bool:
         """Check if the file exists."""
@@ -106,10 +106,6 @@ class FileMaster(FileHandleComponent):
             return True
         else:
             return False
-
-    """
-
-    """
 
     def start_community_bundle_files(self):
         community_txt_cache = os.path.join(self.community_dir, 'text_cache')
