@@ -261,36 +261,24 @@ import pstats
 import glob
 
 def test_opti():
-    with cProfile.Profile() as profile:
-      clip_file = "../output-video/"
+  clip_file = "E:\Projects/2024\Video-Content-Pipeline\output-video\private\Imaqtpie\clips/video00.mp4"
 
-      if not os.path.exists(clip_file):
-          raise TypeError("Path not found")
+  if not os.path.exists(clip_file):
+      raise TypeError("Path not found")
 
-      clips_filename = sorted(glob.glob(os.path.join(clip_file, "*mp4")), key=os.path.getmtime)
-      clips_points = []
-      ranker = Ranker()
+  clips_points = []
+  ranker = Ranker()
 
-      ic(clips_filename[0])
+  ic(clip_file)
+  print(clip_file)
 
+  clip_obj = Clip(path=clip_file)
+  ranker.load_clip_opti(clip_obj)
+  clips_points.append((clip_file, ranker.get_total_points()))
 
-      for clip in clips_filename:
-        clip_obj = Clip(path=clip)
-        ranker.load_clip_opti(clip_obj)
-        clips_points.append((clip, ranker.get_total_points()))
+  ic(clips_points)
+  print(clips_points)
 
-      ic(clips_points)
-      avg = ranker.get_total_points() / len(clips_filename)
-      ic(avg)
-      selected_clips = list(filter(lambda x: (x[1] > avg), clips_points))
-      ic(selected_clips)
-
-    save_out_frames(images=ranker.processed_frames, pattern="opti")
-    results = pstats.Stats(profile)
-    results.sort_stats(pstats.SortKey.TIME)
-    results.print_stats(20)
-
-    print(len(ranker.processed_frames))
 
 def test():
     with cProfile.Profile() as profile:
@@ -325,8 +313,7 @@ def test():
 
 
 
-
-
-
-# if __name__ == "__main__":
+if __name__ == "__main__":
+  ic.enable()
+  test_opti()
 

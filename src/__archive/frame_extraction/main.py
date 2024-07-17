@@ -47,7 +47,7 @@ def crop_viewable_region(img, region=None):
   return masked
 
 
-#crops its around the middle offset so we can see action near the crosshair
+# crops its around the middle oset so we can see action near the crosshair
 def crop_image_crosshair(img):
   shape = img.shape
   x_mid = int(shape[0] / 2)
