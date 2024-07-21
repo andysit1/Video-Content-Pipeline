@@ -42,15 +42,22 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     di = sorted(self.score, key="points")
     ic(di)
 
+
+  """
+    To implement, I want to process certain parts of the frame, the facts is that it's the same algos but different
+    regions of the screen
+  """
+
   def on_run(self):
     if not self.is_analyze_cache():
       ic.disable()
       ic("Analyzing Clips....")
       clips = self.get_clips()
       cv_color = cv2.COLOR_YUV2RGB_I420       # OpenCV converts YUV frames to RGB
-      gaus_white_percentage = 0
-      canny_white_percentage = 0
+
       for clip in clips:
+        gaus_white_percentage = 0
+        canny_white_percentage = 0
         if os.path.exists(clip):
           try:
             video = VideoStream(path=clip) #load yuv by default
@@ -71,7 +78,6 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
                 arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0]) #Why does this work
                 gaus_white_percentage += self.do_binary_threshold(img=arr)
                 canny_white_percentage += self.get_canny_edge_detection_white_percentage(img=arr)
-
 
             data_obj = {
               'name' : clip,
