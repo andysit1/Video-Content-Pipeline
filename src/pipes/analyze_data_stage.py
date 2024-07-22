@@ -89,7 +89,7 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
       if len(chunk_starts) > len(chunk_ends):
           # Finished with non-silence.
           chunk_ends.append(end_time or 10000000.)
-
+    
       chunks = list(zip(chunk_starts, chunk_ends))
 
 

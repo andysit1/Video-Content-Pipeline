@@ -23,7 +23,7 @@ class ActionPipe(Pipe, FFMPEGAggregate):
 
       #handle chunking
       self.chunk_path = os.path.join(self.engine.payload['cache_txt_out'], 'chunks.txt')
-
+      self.clip_offset = 1.5 #amt of time to add to end of clips to make it more smooth and end on less abruptly
 
     def get_chunk_data(self):
       lines = self.read_lines(self.chunk_path)
@@ -55,9 +55,7 @@ class ActionPipe(Pipe, FFMPEGAggregate):
           start = chunk[0]
           end = chunk[-1]
 
-          time = round(end - start, 3)
-          # total_time += time
-          ic(time)
+          time = round(end - start, 3) + self.clip_offset
 
           if 0 < i or i < 10:
               out_filename_tail = str(0) + str(i)

@@ -8,11 +8,11 @@ def main():
 
     engine = PipelineEngine()
 
-    in_filename = "E:/Projects/2024/Video-Content-Pipeline/TD/VODS/soda.mp4"
+    in_filename = "E:\Projects/2024\Video-Content-Pipeline\TD\VODS\imaqtpie.mp4"
     engine.payload['in_filename'] = in_filename
-    engine.payload['video_name'] = 'soda'
+    engine.payload['video_name'] = 'Imaqtpie'
     engine.payload['is_community'] = False
     engine.run(EntryPipe(engine=engine))
 
 if __name__ == "__main__":
-    main()
+    main() #./TwitchDownloaderCLI videodownload --id 612942303 -b 0:01:40 -e 0:03:20 -o video.mp4

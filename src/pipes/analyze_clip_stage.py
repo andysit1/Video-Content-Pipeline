@@ -21,8 +21,19 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
 
     self.low_piority_weight : int = 1
     self.analyze_data = os.path.join(self.engine.payload['cache_txt_out'], "analyze_data.txt")
+    self.chunk_path = os.path.join(self.engine.payload['cache_txt_out'], 'chunks.txt')
 
     self.score = []
+
+  def get_duration_data(self):
+    lines = self.read_lines(self.chunk_path)
+    chunks = []
+
+    for line in lines:
+      cleaned = line[1:-2].split(', ')
+      chunks.append((float(cleaned[0]) - float(cleaned[-1])))
+    ic(chunks)
+    return chunks
 
   def get_clips(self) -> list[str]:
     return sorted(glob.glob(os.path.join(self.engine.payload['clips_out'], "*")), key=os.path.getmtime)
@@ -36,7 +47,9 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     return False
 
   def cache_analyze_data(self):
-    self.write_lines(path=self.analyze_data, lines=self.score)
+    time = self.get_duration_data()
+    data = zip(self.score, time)
+    self.write_lines(path=self.analyze_data, lines=data)
 
   def sort_video_order(self):
     di = sorted(self.score, key="points")
