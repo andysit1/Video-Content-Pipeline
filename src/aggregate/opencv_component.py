@@ -92,10 +92,15 @@ class OpenCVAggregate:
         return mask
 
 
-    def get_sift_heat_map(self, img):
-        val = cv2.SIFT.detectAndCompute(image=img)
-        # take val and return a vector that represent a area on the img that is strong
+    def get_sith_vector(self, img):
+        key_points = cv2.SIFT.detectAndCompute(image=img)
+        #get the keypoints, then make them a vector
+        #similar to boid function from a game, we can probably average the vectors into a single vector.
+            #hopefully returning the strongest point
+        #then each video will have a vector strength that will identify it's energy/vibe
+
         pass
+
 
     def do_gaussian_blur(self, img : np.ndarray) -> np.ndarray:
         return cv2.GaussianBlur(
