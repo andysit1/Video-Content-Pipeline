@@ -9,7 +9,7 @@
 """
 
 from rich.console import Console
-
+from queue import Queue
 import os
 from icecream import ic
 from src.modules.pipeline_builder import Pipe
@@ -20,7 +20,7 @@ import ast
 class CompileVideoPipe(Pipe, FFMPEGAggregate):
   def __init__(self, engine):
     super().__init__(engine)
-    self.__DEBUG = False
+    self.__DEBUG = True
     self.analyze_data = os.path.join(self.engine.payload['cache_txt_out'], "analyze_data.txt")
 
     self.data = self.get_analyze_data() #lines of data ()
@@ -62,7 +62,7 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
       except:
         ic('ERROR', video)
         pass
-    ic(len(self.data))
+
 
   #TODO
 
@@ -84,6 +84,8 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     without_stats.sort(key=myFunc, reverse=True)
     return without_stats
     # ic(self.data)
+
+
 
   def add_randomness_to_videos(self):
     import random
@@ -113,6 +115,65 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
 
     return data
 
+  def compare_clips(self, line1: str, line2: str) -> bool:
+    if line1[0] == line2[0]:
+      return False
+    ic("Comparing {} ANND {}".format(line1, line2))
+    return True
+
+  def get_video_order(self) -> list[str]:
+    high_lower = self.sort_videos_in_order_high()
+    q = Queue(maxsize=3)
+    video_order = []
+    for line in high_lower:
+      if q.full():
+        video_order.append(q.get())
+        continue
+
+      if q.qsize() <= 0:
+        q.put(line)
+        continue
+
+      if self.compare_clips(line1=q.queue[0], line2=line):
+        video_order.append(q.get())
+        video_order.append(line)
+      else:
+        q.put(line)
+
+    #just pushed the rest of q into video_order
+    while not q.empty:
+      video_order.append(q.get())
+
+    return video_order
+
+    """
+      Implement Brain Storm
+        for clip in high lower
+          queue clip
+            if queue.len <= 1
+              continue to next clip to queue inorder for more than 2 clips
+
+          compare_clips(line1, line2) -> true or false:
+
+          if true
+            apppend the two
+          else:
+            queue next
+          check the next combinations
+
+        "EXIT CONDITIONS" -> to never loop inf
+        if queue lengh > 4:
+          then pair first two clips and go.
+          save the higher point clip for more idea and if it never matches i rather have a banger at the end of video
+
+        if higher_lower is near end and no match
+          just append rest to video
+
+        ISSUE
+          -> what if it never reaches conditions so we need an exit conditions
+     """
+
+
   def compile_video(self):
     lines = self.add_randomness_to_videos() #sorts and adds randomness
     file_compile_lines = ["file {}".format(line[0]['name'].replace('\\', '/')) for line in lines[1:]]
@@ -124,7 +185,6 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     self.engine.machine.current = None
 
   def on_run(self):
-
     if not self.__DEBUG:
       ic("Running Compile Video Pipe")
       average_points = self.data[-1]['average_points']
@@ -135,8 +195,8 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     #move the print statements here
     ic("DEBUGGING COMPILE PIPELINE")
     average_points = self.data[-1]['average_points']
-    self.threshold_video_points(average_points)
-    self.add_randomness_to_videos()
+    self.threshold_video_points(average_points) # filter the list...
+    self.get_video_order()
     self.on_done()
 
 
@@ -144,6 +204,23 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
       GOAL, videos that generate are too similar to each other
         scatter videos by duration
         scatter videos by SIFT algo
+
+      Brain Storm
+        If we want to do higher level analysis. We likely need to create sub data structure of a queue
+          How this will work is we queue this clip and next clip, if they do not meet conditions
+            THEN
+              queue next video and see if there is a match or meets condition
+              If DOES then match these two into list and move onto next video
+
+        Conditions
+          Focus point should relatively close.
+          IF time is relevant
+            do not sort base on points
+            probably should force slice a video every 10 mins or 5 mins depending on size of stream.
+
+          IF time is not relevant
+            sort higher to low
+            compare focus points and try to select points that line up nicely
     """
 
 

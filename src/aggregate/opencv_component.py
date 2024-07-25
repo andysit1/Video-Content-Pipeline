@@ -11,7 +11,7 @@ import glob
 import numpy as np
 import os
 
-from .utils import percentage_of_white_pixels
+from utils import percentage_of_white_pixels
 
 
 """
@@ -101,6 +101,38 @@ class OpenCVAggregate:
 
         pass
 
+    def get_focus_point(self, img):
+        #add a mask... here
+
+           #init heatup
+        height, width = img.shape[:2]
+        heatmap = {}
+        x_range = 6
+        y_range = 4
+        chunk_size_x = width / x_range
+        chunk_size_y = height / y_range
+        sift = cv2.SIFT_create()
+
+        for y in range (y_range):
+            for x in range (x_range):
+                heatmap["{},{}".format(x,y)] = 0
+
+        gray = self.convert_to_gray(img)
+
+        #add a mask here.
+        keypoints1, _ = sift.detectAndCompute(gray, None)
+
+        keypoint_coords = np.array([kp.pt for kp in keypoints1]).astype(int)
+
+        #add sizing
+        for cord in keypoint_coords:
+            heatmap["{},{}".format(int(cord[0] / chunk_size_x), int(cord[1] / chunk_size_y))] += 1
+
+        largest_k = max(heatmap, key=heatmap.get)
+
+        #sort heatmap
+        return largest_k, heatmap[largest_k]
+
 
     def do_gaussian_blur(self, img : np.ndarray) -> np.ndarray:
         return cv2.GaussianBlur(
@@ -134,10 +166,50 @@ class OpenCVAggregate:
 
 
 if __name__ == "__main__":
+
     path = "E:\Projects/2024\Video-Content-Pipeline\src\__archive/frame_extraction\in_frame\demo3.jpg"
     img = cv2.imread(path)
     cv = OpenCVAggregate()
-    region = cv.generate_region(img, 3,4,0,1)
-    kill_feed = cv.crop_viewable_region(img, region)
-    red_thresh_hold = cv.color_threshold_processing(kill_feed, (84, 36, 36), (250, 0, 0))
-    cv2.imwrite("red_threshold_kill_feed.png", red_thresh_hold)
+    print(cv.get_focus_point(img=img))
+
+    # #init heatup
+    # height, width = img.shape[:2]
+    # heatmap = {}
+    # x_range = 6
+    # y_range = 4
+    # chunk_size_x = width / x_range
+    # chunk_size_y = height / y_range
+
+    # for y in range (y_range):
+    #     for x in range (x_range):
+    #         heatmap["{},{}".format(x,y)] = 0
+    # print(heatmap)
+
+    # #call this at the start and end of a clip... and check if the position/focus is similar to next frame.
+    #     #good for flow/focus at the end frame
+
+    # sift = cv2.SIFT_create()
+    # gray = cv.convert_to_gray(img)
+    # keypoints1, descriptors1 = sift.detectAndCompute(gray, None)
+
+    # img=cv2.drawKeypoints(gray, keypoints1, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    # keypoint_coords = np.array([kp.pt for kp in keypoints1]).astype(int)
+
+    # #add sizing
+    # for cord in keypoint_coords:
+    #     heatmap["{},{}".format(int(cord[0] / chunk_size_x), int(cord[1] / chunk_size_y))] += 1
+
+    # print(heatmap)
+
+
+
+
+
+
+
+
+
+
+
+
+

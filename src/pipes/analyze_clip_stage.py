@@ -61,6 +61,9 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     regions of the screen
   """
 
+
+
+  #add focus point as a stat
   def on_run(self):
     if not self.is_analyze_cache():
       ic.disable()
@@ -91,12 +94,15 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
                 arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0]) #Why does this work
                 gaus_white_percentage += self.do_binary_threshold(img=arr)
                 canny_white_percentage += self.get_canny_edge_detection_white_percentage(img=arr)
+                # self.get_focus_point(arr)
+
 
             data_obj = {
               'name' : clip,
               'gaus_white_percentage' : gaus_white_percentage,
               'canny_white_percentage': canny_white_percentage,
-              'points' : gaus_white_percentage * 2 + canny_white_percentage * 0.5
+              'points' : gaus_white_percentage * 2 + canny_white_percentage * 0.5,
+              'focus' : "3,4"
             }
 
             self.score.append(data_obj)
