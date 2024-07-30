@@ -147,7 +147,6 @@ def get_chunk_times(in_filename, silence_threshold, silence_duration, start_time
 
     return list(zip(chunk_starts, chunk_ends))
 
-
 #needs to add like 10-14 min leeway for the clippping so that clips dont end to akwardly
 
 def get_clean_chunk_times(in_filename, silence_threshold, silence_duration, seconds_between_clips_varriance : int):
@@ -157,7 +156,6 @@ def get_clean_chunk_times(in_filename, silence_threshold, silence_duration, seco
     ic(silence_intervals)
 
     previous_end = 0
-
     #merges clips intervals together if within 3 second intervals of each other
     for i, (start_time, end_time) in enumerate(silence_intervals):
         if i == 0:
@@ -217,30 +215,5 @@ def split_audio(
             stdout=subprocess.PIPE if not verbose else None,
             stderr=subprocess.PIPE if not verbose else None,
         ).communicate()
-
-
-
-if __name__ == '__main__':
-    # kwargs = vars(parser.parse_args())
-    # if kwargs['verbose']:
-    # split_audio(**kwargs)
-
-
-    # c = split_audio(
-    #     in_filename='../TD/VODS/sanch.mp4',
-    #     silence_threshold=-10,
-    #     silence_duration=3,
-    # )
-    in_filename = "E:/Projects/2024/Video-Content-Pipeline/TD/VODS/imaqtpie.mp4"
-
-    chunks = get_clean_chunk_times(
-        in_filename=in_filename,
-        silence_threshold=-13,
-        silence_duration=0.5,
-        seconds_between_clips_varriance=3
-    )
-
-    print(chunks)
-
 
 

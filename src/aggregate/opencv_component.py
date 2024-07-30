@@ -11,7 +11,7 @@ import glob
 import numpy as np
 import os
 
-from utils import percentage_of_white_pixels
+from .utils import percentage_of_white_pixels
 
 
 """
