@@ -29,7 +29,9 @@ Type of Stages := Download VOD, Data Cache, Data process, Analyze Data, Action S
 """
 
 from icecream import ic
-
+from queue import Queue
+import logging
+logger = logging.getLogger(__name__)
 #Future -> might need to refactor this code so we better support different functions / use per stage but it's okay for a start
 class Pipe():
     def __init__(self, engine):
@@ -42,8 +44,9 @@ class Pipe():
         pass
 
     def on_error(self):
-        #base on the location we can Ok it or return it to the pipeline to decide where to go or change output
-        pass
+       #resets the code back to download pipe to continue to next video processes if there's an error
+       from src.pipes.dl_stage import DownloadPipe
+       self.engine.machine.current = DownloadPipe(self.engine)
 
 class Machine:
     """
@@ -61,6 +64,7 @@ class Machine:
         Update the current state.
         """
         if self.next_state:
+            logger.info(msg="Entering Pipe {}".format(self.next_state))
             self.current = self.next_state
             self.next_state = None
 
@@ -71,8 +75,7 @@ class PipelineEngine:
         self.running = True
         self.DEBUG = False
         self.PERFORMANCE = False
-
-
+        self.q = Queue()
         #handles all the data each pipe should have...
         self.payload = {
             "is_community" : None,
@@ -82,16 +85,14 @@ class PipelineEngine:
             "clips_out" : None #where clips are stored location
         }
 
+    def load_payload(self, payload : dict):
+        self.payload = payload
 
-    # should logs be stage dependant or pipeline dependent () maybe have both one for stage changes and one for stages functions?
-    def save_logs(self):
-        pass
 
     def on_change(self):
         pass
 
     def loop(self):
-        ic("looping")
         while self.running:
             self.machine.update()
             if self.machine.current:
@@ -100,6 +101,7 @@ class PipelineEngine:
                 self.running = False
 
         print("Finished Pipeline Process")
+
     def run(self, state):
         self.machine.current = state
         self.loop()

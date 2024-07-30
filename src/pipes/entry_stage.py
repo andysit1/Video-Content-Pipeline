@@ -5,7 +5,8 @@ from src.pipes.data_cache_stage import DataCachePipe
 from src.aggregate.filehandler_component import FileMaster
 from icecream import ic
 
-
+import logging
+logger = logging.getLogger(__name__)
 
 
 """
@@ -13,6 +14,7 @@ from icecream import ic
 """
 class EntryPipe(Pipe):
   def __init__(self, engine):
+    ic("Starting Entry")
     super().__init__(engine)
     self.file_master = FileMaster(self.engine)
 
@@ -53,8 +55,9 @@ class EntryPipe(Pipe):
 
   #checks for requirements and variables incase
   def on_run(self):
+    ic.configureOutput(includeContext=True)
     if not self.engine.payload['in_filename']:
-      raise FileExistsError("This video does not exist")
+      raise FileExistsError("This video does no exist")
 
     if not self.engine.payload['video_name']:
       raise ValueError("Required Video Name")

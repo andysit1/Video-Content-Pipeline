@@ -76,8 +76,6 @@ class FileHandleComponent:
         if self.file_exists(path):
             os.remove(path)
 
-
-
 class FileMaster(FileHandleComponent):
     def __init__(self, engine) -> None:
         self.engine = engine

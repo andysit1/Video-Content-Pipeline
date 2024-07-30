@@ -21,7 +21,8 @@ silence_end_re = re.compile(r' silence_end: (?P<end>[0-9]+(\.?[0-9]*)) ')
 total_duration_re = re.compile(
     r'size=[^ ]+ time=(?P<hours>[0-9]{2}):(?P<minutes>[0-9]{2}):(?P<seconds>[0-9\.]{5}) bitrate=')
 
-
+import logging
+logger = logging.getLogger(__name__)
 
 class AnalyzeDataFiles(Pipe, FileHandleComponent):
   def __init__(self, engine):
@@ -31,8 +32,7 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
     self.chunk_path = os.path.join(self.engine.payload['cache_txt_out'], 'chunks.txt')
 
   def on_done(self):
-    ic()
-    self.engine.machine.current = ActionPipe(self.engine)
+    self.engine.machine.next_state = ActionPipe(self.engine)
 
   def get_data(self):
     volume_detect = os.path.join(self.engine.payload['cache_txt_out'], 'volume_detect.txt')
@@ -54,21 +54,17 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
     if not self.if_chunks_txt():
       silence_detect_path = os.path.join(self.engine.payload['cache_txt_out'], 'silence_detect.txt')
       lines = self.read_lines(silence_detect_path)
+      ic("Total Lines", len(lines))
 
       start_time = None
       end_time = None
       chunk_starts = []
       chunk_ends = []
-      seconds_between_clips_varriance = 3
 
       for line in lines:
-          ic(line)
-          ic()
           silence_start_match = silence_start_re.search(line)
           silence_end_match = silence_end_re.search(line)
           total_duration_match = total_duration_re.search(line)
-          ic(silence_start_match, silence_end_match, total_duration_match)
-
           if silence_start_match:
               chunk_ends.append(float(silence_start_match.group('start')))
               if len(chunk_starts) == 0:
@@ -92,24 +88,28 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
 
       chunks = list(zip(chunk_starts, chunk_ends))
 
+      ic("Total before clean Lines", len(chunks))
+      ic(chunks)
+      self.clean_chunks(chunks=chunks)
 
-      previous_end = 0
-      #merges clips intervals together if within 3 second intervals of each other
-      for i, (start_time, end_time) in enumerate(chunks):
-          if i == 0:
-              previous_end = end_time
-              continue
+  def clean_chunks(self, chunks : list):
+    seconds_between_clips_varriance = 4
+    silence_intervals = chunks
+    previous_end = 0
+    #merges clips intervals together if within 3 second intervals of each other
+    for i, (start_time, end_time) in enumerate(silence_intervals):
+        if i == 0:
+            previous_end = end_time
+            continue
 
-          if start_time - previous_end <= seconds_between_clips_varriance:
-              chunks[i - 1] = chunks[i - 1] + chunks[i]
-              chunks.remove(chunks[i])
-          previous_end = end_time
+        if start_time - previous_end <= seconds_between_clips_varriance:
+            silence_intervals[i - 1] = silence_intervals[i - 1] + silence_intervals[i]
+            silence_intervals.remove(silence_intervals[i])
+        previous_end = end_time
 
-      #clips should be atless 1.5 inlength
-      cleaned_chunks = [interval for interval in chunks if round(interval[1] - interval[0], 3) >= 1.5]
-
-      ic(cleaned_chunks)
-      self.write_lines(self.chunk_path, cleaned_chunks)
+    #clips should be atless 1.5 inlength
+    cleaned_intervals = [interval for interval in silence_intervals if round(interval[-1] - interval[0], 3) >= 1.5]
+    self.write_lines(self.chunk_path, cleaned_intervals)
 
   def get_chunk_data(self):
     lines = self.read_lines(self.chunk_path)
@@ -119,13 +119,9 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
       cleaned = line[1:-2].split(', ')
       chunks.append((float(cleaned[0]), float(cleaned[-1])))
 
-    ic(chunks)
-
-
-
   def on_run(self):
     print("Running AnalyzeDataFiles")
-    ic.disable()
+    ic.enable()
     self.analyze_silence()
     self.on_done()
 

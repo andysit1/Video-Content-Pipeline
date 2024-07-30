@@ -13,7 +13,8 @@ import glob
 import cv2
 import numpy as np
 from .compile_stage import CompileVideoPipe
-
+import logging
+logger = logging.getLogger(__name__)
 
 class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
   def __init__(self, engine):
@@ -21,14 +22,25 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
 
     self.low_piority_weight : int = 1
     self.analyze_data = os.path.join(self.engine.payload['cache_txt_out'], "analyze_data.txt")
+    self.chunk_path = os.path.join(self.engine.payload['cache_txt_out'], 'chunks.txt')
 
     self.score = []
+
+  def get_duration_data(self):
+    lines = self.read_lines(self.chunk_path)
+    chunks = []
+
+    for line in lines:
+      cleaned = line[1:-2].split(', ')
+      chunks.append((float(cleaned[0]) - float(cleaned[-1])))
+    ic(chunks)
+    return chunks
 
   def get_clips(self) -> list[str]:
     return sorted(glob.glob(os.path.join(self.engine.payload['clips_out'], "*")), key=os.path.getmtime)
 
   def on_done(self):
-    self.engine.machine.current = CompileVideoPipe(self.engine)
+    self.engine.machine.next_state = CompileVideoPipe(self.engine)
 
   def is_analyze_cache(self):
     if self.file_exists(self.analyze_data):
@@ -36,21 +48,33 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     return False
 
   def cache_analyze_data(self):
-    self.write_lines(path=self.analyze_data, lines=self.score)
+    time = self.get_duration_data()
+    data = zip(self.score, time)
+    self.write_lines(path=self.analyze_data, lines=data)
 
   def sort_video_order(self):
     di = sorted(self.score, key="points")
     ic(di)
 
+
+  """
+    To implement, I want to process certain parts of the frame, the facts is that it's the same algos but different
+    regions of the screen
+  """
+
+
+
+  #add focus point as a stat
   def on_run(self):
     if not self.is_analyze_cache():
-      ic.disable()
+      ic.enable()
       ic("Analyzing Clips....")
       clips = self.get_clips()
       cv_color = cv2.COLOR_YUV2RGB_I420       # OpenCV converts YUV frames to RGB
-      gaus_white_percentage = 0
-      canny_white_percentage = 0
+
       for clip in clips:
+        gaus_white_percentage = 0
+        canny_white_percentage = 0
         if os.path.exists(clip):
           try:
             video = VideoStream(path=clip) #load yuv by default
@@ -71,13 +95,15 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
                 arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0]) #Why does this work
                 gaus_white_percentage += self.do_binary_threshold(img=arr)
                 canny_white_percentage += self.get_canny_edge_detection_white_percentage(img=arr)
+                # self.get_focus_point(arr)
 
 
             data_obj = {
               'name' : clip,
               'gaus_white_percentage' : gaus_white_percentage,
               'canny_white_percentage': canny_white_percentage,
-              'points' : gaus_white_percentage * 2 + canny_white_percentage * 0.5
+              'points' : gaus_white_percentage * 2 + canny_white_percentage * 0.5,
+              'focus' : "3,4"
             }
 
             self.score.append(data_obj)
