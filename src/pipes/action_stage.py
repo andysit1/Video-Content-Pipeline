@@ -9,17 +9,19 @@ This Stage handles the actual splicing of the video and is the most time consumi
 
   cuda/gpu rendering? idk we will figure that out later
 """
-
-
 import os
 from icecream import ic
 from src.modules.pipeline_builder import Pipe
 from src.aggregate.ffmpeg_component import FFMPEGAggregate
 from .analyze_clip_stage import AnalyzeClipsPipe
 
+import logging
+logger = logging.getLogger(__name__)
+
 class ActionPipe(Pipe, FFMPEGAggregate):
     def __init__(self, engine):
       super().__init__(engine)
+      self.__DEBUG = False
 
       #handle chunking
       self.chunk_path = os.path.join(self.engine.payload['cache_txt_out'], 'chunks.txt')
@@ -36,26 +38,26 @@ class ActionPipe(Pipe, FFMPEGAggregate):
       ic(chunks)
       return chunks
 
-
     def if_videos_cliped(self) -> bool:
        if self.file_exists(os.path.join(self.engine.payload['clips_out'], 'video00.mp4')):
           return True
        return False
 
+
     def split_into_clips(self):
+
       if not self.if_videos_cliped():
-
+        logger.info('split into clips')
         chunk_times = self.get_chunk_data()
-        ic("Clipping {len(chunk_times} number of clips")
-
         out_pattern = os.path.join(self.engine.payload['clips_out'], 'video{}.mp4')
         # total_time = 0
 
+        logger.info('Start spliting clips of {}'.format(str(len(chunk_times))))
         for i, chunk in enumerate(chunk_times):
           start = chunk[0]
           end = chunk[-1]
 
-          time = round(end - start, 3) + self.clip_offset
+          time = round(end - start, 3)
 
           if 0 < i or i < 10:
               out_filename_tail = str(0) + str(i)
@@ -71,12 +73,18 @@ class ActionPipe(Pipe, FFMPEGAggregate):
             start=start,
             time=time
           )
+        logger.info("Finish splitting into clips")
+
         # self.append_to_file()
     def on_done(self):
-      ic("Finished Pipeline")
-      self.engine.machine.current = AnalyzeClipsPipe(self.engine)
+      self.engine.machine.next_state = AnalyzeClipsPipe(self.engine)
 
     def on_run(self):
-      ic.enable()
-      self.split_into_clips()
+      if not self.__DEBUG:
+        ic.enable()
+        self.split_into_clips()
+        self.on_done()
+
       self.on_done()
+
+

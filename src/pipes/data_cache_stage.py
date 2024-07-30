@@ -6,11 +6,14 @@ we do not want to hold onto each frame. This causes an huge amount of mem to be 
 
 from src.modules.pipeline_builder import Pipe
 from src.pipes.analyze_data_stage import AnalyzeDataFiles
-from src.aggregate.ffmpeg_component import FFMPEGAggregate
+from src.aggregate.ffmpeg_component import FFMPEGAggregate, ic
 from src.aggregate.filehandler_component import FileHandleComponent
 import os
-
-
+import re
+#global regex
+histogram_re = re.compile(r'histogram_(?P<db_level>\d+)db: (?P<count>\d+)')
+import logging
+logger = logging.getLogger(__name__)
 """
   Outputs the data into the text files and saves them
 """
@@ -18,6 +21,8 @@ class DataCachePipe(Pipe, FileHandleComponent):
   def __init__(self, engine):
     super().__init__(engine)
     self.ffmpeg = FFMPEGAggregate(engine=engine)
+    #handle db
+    self.silence_db_range : int = 10500
 
     #init the cache files locations
     self.volume_detect = os.path.join(self.engine.payload['cache_txt_out'], 'volume_detect.txt')
@@ -27,34 +32,47 @@ class DataCachePipe(Pipe, FileHandleComponent):
   #check if cache exist else, just move onto the next stage (some times we want to re compile videos or try new algos)
   def check_data_exist(self):
     if not self.file_exists(self.volume_detect):
-      return False
-
-    if not self.file_exists(self.silence_detect):
-      return False
-
-    #we should also check if the files had data inside
-    return True
-
-  def on_run(self):
-    if not self.check_data_exist():
       mean_max_lines = self.ffmpeg.get_mean_max(self.engine.payload['in_filename'])
-      silence_lines = self.ffmpeg.silence_detect(self.engine.payload['in_filename'],
-                                                silence_threshold=-13,
-                                                silence_duration=0.5)
-
-      self.write_lines(self.silence_detect, silence_lines)
       self.write_lines(self.volume_detect, mean_max_lines)
 
-    self.on_done()
+    if not self.file_exists(self.silence_detect):
+      silence_db = self.get_silence_db()
+
+      if silence_db == -1:
+          self.on_error()
+          return False
+
+      ic("selected db", silence_db)
+      silence_lines = self.ffmpeg.silence_detect(self.engine.payload['in_filename'],
+                                                silence_threshold=silence_db,
+                                                silence_duration=0.5)
+      self.write_lines(self.silence_detect, silence_lines)
+
+    return True
+
+  #TODO/FEATURE
+  def get_silence_db(self) -> int:
+    lines = self.read_lines(path=self.volume_detect)
+    histogram_matches = []
+    for line in lines:
+      histogram_matches = histogram_re.findall(line)
+
+      if histogram_matches and int(histogram_matches[0][1]) > self.silence_db_range:
+        return int(histogram_matches[0][0]) * -1
+    return -1
+
+  def on_run(self):
+    if self.check_data_exist():
+      self.on_done()
+    else:
+      return
 
   def on_done(self):
     self.engine.machine.next_state = AnalyzeDataFiles(self.engine)
 
-
-    return super().on_done()
-
   def on_error(self):
-    #gets more complicated later on
-    raise TypeError("Missing input file in filename")
+    #send to Download if there's any error
+    from src.pipes.dl_stage import DownloadPipe
+    self.engine.machine.current = DownloadPipe(self.engine)
 
 

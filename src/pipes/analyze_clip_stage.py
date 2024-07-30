@@ -13,7 +13,8 @@ import glob
 import cv2
 import numpy as np
 from .compile_stage import CompileVideoPipe
-
+import logging
+logger = logging.getLogger(__name__)
 
 class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
   def __init__(self, engine):
@@ -39,7 +40,7 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     return sorted(glob.glob(os.path.join(self.engine.payload['clips_out'], "*")), key=os.path.getmtime)
 
   def on_done(self):
-    self.engine.machine.current = CompileVideoPipe(self.engine)
+    self.engine.machine.next_state = CompileVideoPipe(self.engine)
 
   def is_analyze_cache(self):
     if self.file_exists(self.analyze_data):
@@ -66,7 +67,7 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
   #add focus point as a stat
   def on_run(self):
     if not self.is_analyze_cache():
-      ic.disable()
+      ic.enable()
       ic("Analyzing Clips....")
       clips = self.get_clips()
       cv_color = cv2.COLOR_YUV2RGB_I420       # OpenCV converts YUV frames to RGB

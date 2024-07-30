@@ -15,12 +15,13 @@ from icecream import ic
 from src.modules.pipeline_builder import Pipe
 from src.aggregate.ffmpeg_component import FFMPEGAggregate
 import ast
-
+import logging
+logger = logging.getLogger(__name__)
 
 class CompileVideoPipe(Pipe, FFMPEGAggregate):
   def __init__(self, engine):
     super().__init__(engine)
-    self.__DEBUG = True
+    self.__DEBUG = False
     self.analyze_data = os.path.join(self.engine.payload['cache_txt_out'], "analyze_data.txt")
 
     self.data = self.get_analyze_data() #lines of data ()
@@ -35,7 +36,6 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
 
     for line in lines:
       converted_dict = ast.literal_eval(line) #ast.literal_eval is crazy good
-      ic("duration {}".format(converted_dict[1]))
       data.append(converted_dict)
       total_points += converted_dict[0]['points']
 
@@ -122,7 +122,8 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     return True
 
   def get_video_order(self) -> list[str]:
-    high_lower = self.sort_videos_in_order_high()
+
+    high_lower = self.threshold_video_points()
     q = Queue(maxsize=3)
     video_order = []
     for line in high_lower:
@@ -175,23 +176,27 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
 
 
   def compile_video(self):
-    lines = self.add_randomness_to_videos() #sorts and adds randomness
+    self.data.pop()
+    lines = self.data #sorts and adds randomness
     file_compile_lines = ["file {}".format(line[0]['name'].replace('\\', '/')) for line in lines[1:]]
     self.write_lines("tmp_file.txt", file_compile_lines)
     out_filename = os.path.join(self.engine.payload['clips_out'], self.engine.payload['video_name'] + ".mp4").replace('\\', '/')
     self.combine_videos_demuxer_method(out_filename)
 
   def on_done(self):
-    self.engine.machine.current = None
+    #pass back to the engine to check if we still
+    from src.pipes.dl_stage import DownloadPipe
+    self.engine.machine.next_state = DownloadPipe(self.engine)
 
   def on_run(self):
     if not self.__DEBUG:
       ic("Running Compile Video Pipe")
       average_points = self.data[-1]['average_points']
-      self.threshold_video_points(average_points)
+      self.threshold_video_points(average_points) #drop the requirements...
       self.compile_video()
       self.on_done()
       return
+
     #move the print statements here
     ic("DEBUGGING COMPILE PIPELINE")
     average_points = self.data[-1]['average_points']
