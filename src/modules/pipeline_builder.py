@@ -79,10 +79,11 @@ class PipelineEngine:
         #handles all the data each pipe should have...
         self.payload = {
             "is_community" : None,
+            "is_caster_mode" : None,
             "in_filename" : None, #video to process
             "video_name" : None,
             "cache_txt_out" : None, #datacache location
-            "clips_out" : None #where clips are stored location
+            "clips_out" : None, #where clips are stored location
         }
 
     def load_payload(self, payload : dict):

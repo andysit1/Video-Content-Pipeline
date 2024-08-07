@@ -27,7 +27,6 @@ def _logged_popen(cmd_line, *args, **kwargs):
     ic('Running command: {}'.format(subprocess.list2cmdline(cmd_line)))
     return subprocess.Popen(cmd_line, *args, **kwargs)
 
-#FFMPEG uses a lot of files from find instances of vides to files we need it
 class FFMPEGAggregate(FileHandleComponent):
   def __init__(self, engine, debug=False) -> None:
       self.engine = engine
@@ -41,7 +40,6 @@ class FFMPEGAggregate(FileHandleComponent):
   def load_frames(self):
       files = glob.glob("./frame_extraction/in_frame/*")
       return files
-
 
   def get_mean_max(self, in_filename) -> tuple:
 

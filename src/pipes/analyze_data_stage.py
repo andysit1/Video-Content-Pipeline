@@ -51,8 +51,9 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
      return self.path_exists(self.chunk_path)
 
   def analyze_silence(self):
-    if not self.if_chunks_txt():
-      silence_detect_path = os.path.join(self.engine.payload['cache_txt_out'], 'silence_detect.txt')
+    silence_detect_path = os.path.join(self.engine.payload['cache_txt_out'], 'silence_detect.txt')
+
+    if not self.if_chunks_txt() and self.path_exists(silence_detect_path):
       lines = self.read_lines(silence_detect_path)
       ic("Total Lines", len(lines))
 
@@ -91,7 +92,8 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
       ic("Total before clean Lines", len(chunks))
       ic(chunks)
       self.clean_chunks(chunks=chunks)
-
+      
+    ic("no analyze_silence triggered")
   def clean_chunks(self, chunks : list):
     seconds_between_clips_varriance = 4
     silence_intervals = chunks

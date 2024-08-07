@@ -93,8 +93,10 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
               if (frames % 30) == 1:
                 ic(frames)
                 arr = np.frombuffer(frame, np.uint8).reshape(video.shape()[1] * 3 // 2, video.shape()[0]) #Why does this work
-                gaus_white_percentage += self.do_binary_threshold(img=arr)
-                canny_white_percentage += self.get_canny_edge_detection_white_percentage(img=arr)
+
+                if self.crop_image_crosshair(arr):
+                  gaus_white_percentage += self.do_binary_threshold(img=arr)
+                  canny_white_percentage += self.get_canny_edge_detection_white_percentage(img=arr)
                 # self.get_focus_point(arr)
 
 

@@ -1,0 +1,54 @@
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000017D7A313FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000017D7A316F70>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000017D7A313FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000017D7A316F70>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x0000017D7A313FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x0000017D7A434FD0>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001AF7F3A0F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001AF7F3D8CA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001AF7F5F39A0>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 2
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001AF7F577940>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x000001AF7F6C0C10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x000001AF7F75BF40>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001D6216CFF10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001D6216EA610>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001D6216D4880>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001D6216EA610>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x000001D6216CFF10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x000001D6216ED1C0>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000289BA7411C0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000289BA744EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000289BA7411C0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000289BA744EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x00000289BA7411C0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x00000289BA863FD0>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000019BBDA40F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000019BBDA78CA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000019BBDC949A0>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 1
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000019BBDC40850>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x0000019BBDCE2730>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x0000019BBDE0F0A0>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000024270391DF0>
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000002EE247711C0>
+INFO:src.pipes.data_cache_stage:ERROR
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000021E57CE46A0>
+INFO:src.pipes.data_cache_stage:ERROR
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000016EFFECFF10>
+INFO:src.pipes.data_cache_stage:ERROR
+INFO:root:Starting Program
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000122B10B11C0>

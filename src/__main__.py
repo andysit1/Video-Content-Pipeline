@@ -14,11 +14,11 @@ def main():
 
     engine = PipelineEngine()
 
-    payload3 = {
-        "stream_id" : 2209204696,
-        "is_community" : False,
-        "video_name" : "cery",
-    }
+    # payload3 = {
+    #     "stream_id" : 2209204696,
+    #     "is_community" : False,
+    #     "video_name" : "cery",
+    # }
 
     # payload4 = {
     #     "stream_id" : 2208310278,
@@ -26,20 +26,18 @@ def main():
     #     "video_name" : "yvonie",
     # }
 
-    # payload5 = {
-    #     "stream_id" : 2209761727,
-    #     "is_community" : False,
-    #     "video_name" : "dyrus",
-    # }
+    payload5 = {
+        "stream_id" : 2209761727,
+        "is_community" : False,
+        "video_name" : "dyrus",
+    }
 
     logging.info("Starting Program")
 
-
-
     #queue the videos..
-    engine.q.put(payload3)
+    # engine.q.put(payload3)
     # engine.q.put(payload4)
-    # engine.q.put(payload5)
+    engine.q.put(payload5)
     engine.run(DownloadPipe(engine=engine))
 
 
