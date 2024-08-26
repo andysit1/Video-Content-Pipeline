@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 class DataCachePipe(Pipe, FileHandleComponent):
   def __init__(self, engine):
     super().__init__(engine)
+    self.debug = False
+
+
     self.ffmpeg = FFMPEGAggregate(engine=engine)
     #handle db
     self.silence_db_range : int = 20000
@@ -27,6 +30,7 @@ class DataCachePipe(Pipe, FileHandleComponent):
     #init the cache files locations
     self.volume_detect = os.path.join(self.engine.payload['cache_txt_out'], 'volume_detect.txt')
     self.silence_detect = os.path.join(self.engine.payload['cache_txt_out'], 'silence_detect.txt')
+    self.pure_silence_detect = os.path.join(self.engine.payload['cache_txt_out'], 'pure_silence_detect.txt')
 
 
 
@@ -66,7 +70,15 @@ class DataCachePipe(Pipe, FileHandleComponent):
         silence_lines = self.ffmpeg.silence_detect(self.engine.payload['in_filename'],
                                                   silence_threshold=silence_db,
                                                   silence_duration=0.5)
+
+
+        pure_silence_lines = self.ffmpeg.silence_detect(self.engine.payload['in_filename'],
+                                                  silence_threshold=-80,
+                                                  silence_duration=3)
+
+
         self.write_lines(self.silence_detect, silence_lines)
+        self.write_file(self.pure_silence_detect, pure_silence_lines)
 
     return None
 
@@ -91,8 +103,10 @@ class DataCachePipe(Pipe, FileHandleComponent):
       return
 
   def on_done(self):
-
-    self.engine.machine.next_state = AnalyzeDataFiles(self.engine)
+    if self.debug:
+      self.engine.machine.next_state = None
+    else:
+      self.engine.machine.next_state = AnalyzeDataFiles(self.engine)
 
   def on_error(self):
     #send to Download if there's any error

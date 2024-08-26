@@ -32,11 +32,7 @@ def main():
         "video_name" : "dyrus",
     }
 
-    logging.info("Starting Program")
 
-    #queue the videos..
-    # engine.q.put(payload3)
-    # engine.q.put(payload4)
     engine.q.put(payload5)
     engine.run(DownloadPipe(engine=engine))
 

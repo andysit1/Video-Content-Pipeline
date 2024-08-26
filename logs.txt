@@ -52,3 +52,7 @@ INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.Data
 INFO:src.pipes.data_cache_stage:ERROR
 INFO:root:Starting Program
 INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000122B10B11C0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000026CCB4DBDF0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001F7D246DF40>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
