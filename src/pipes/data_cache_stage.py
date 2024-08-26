@@ -68,7 +68,7 @@ class DataCachePipe(Pipe, FileHandleComponent):
                                                   silence_duration=0.5)
         self.write_lines(self.silence_detect, silence_lines)
 
-    return None
+    return True
 
   def gather_per_frame(self):
     pass
