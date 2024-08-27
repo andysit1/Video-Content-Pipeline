@@ -18,22 +18,37 @@ logging.basicConfig(
 @click.option("-e", "--extract", is_flag=True, help="extract data and analyze for videodrill.")
 @click.option("-d", "--dev", is_flag=True, help="dev mode")
 def run(compile: bool, extract: bool, dev: bool):
-
+    print("Hello Run" , compile, extract, dev)
     engine = PipelineEngine()
+    flags = [compile, extract, dev]
 
-    """
-      for now do not give all options for sake of development
-    """
+    # Check if exactly one flag is set
+    num_flags_set = sum(flags) #will treat false as 0
+    if num_flags_set != 1:
+        click.echo("Error: Exactly one of flags must be provided.")
+        click.get_current_context().exit(1)
+
+    if compile:
+       engine.compile = True
+       #thus extract must be false
+    else:
+       engine.compile = False
+       #thus extract must be true
+
+
     try:
-
+      #change base on your needs when running dev profile
       if dev:
         engine.payload = {
           "is_community" : False,
-          'video_name' : "qttest",
-          "in_filename" : "./TD/imaqtpie2.mp4",
+          'video_name' : "jacob_teach",
+          "in_filename" : "E:\Projects/2024\wega_transcribe/JacobTeachesVMIX.mkv",
         }
 
+        engine.mode = "extract"
+        engine.compile = False
         engine.run(EntryPipe(engine=engine))
+
 
       if compile:
         stream_id = questionary.text("Provide Stream ID on Twitch:").ask()
@@ -44,6 +59,8 @@ def run(compile: bool, extract: bool, dev: bool):
             "is_community" : False,
             "video_name" : video_name,
         }
+
+        engine.mode = "compile"
 
         DownloadPipe(engine=engine)
 
@@ -57,6 +74,8 @@ def run(compile: bool, extract: bool, dev: bool):
           'video_name' : video_name,
           "in_filename" : in_file,
         }
+
+        engine.mode = "extract"
 
         engine.run(EntryPipe(engine=engine))
 
