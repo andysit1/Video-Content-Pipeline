@@ -66,7 +66,7 @@ class OpenCVAggregate:
     def crop_image_crosshair(self, img : np.ndarray) -> np.ndarray:
         height, width = img.shape[:2]
         if width > self.crosshair_offset and height > self.crosshair_offset:
-            x_mid, y_mid = int(width[0] / 2), int(height[1] / 2)
+            x_mid, y_mid = int(width / 2), int(height / 2)
             offset = self.crosshair_offset
             cropped_img = img[x_mid-offset:x_mid+offset , y_mid-offset:y_mid+offset]
             return cropped_img

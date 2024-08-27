@@ -76,6 +76,9 @@ class PipelineEngine:
         self.DEBUG = False
         self.PERFORMANCE = False
         self.q = Queue()
+        self.compile :  bool = False
+
+
         #handles all the data each pipe should have...
         self.payload = {
             "is_community" : None,
