@@ -1,11 +1,13 @@
 # Video-Content-Pipeline
-Making videos at lightspeed
+A cli application to create video fast.
+
+Requrires ffmpeg installed!
 
 ## Purpose
 
-In this project I wanted to mass edit large videos for streams on twitch for personal and school club reasons. I always thought this project was really interesting which is why I decided to spend some time this summer coding it.
+In this project I wanted to mass edit large videos for streams on twitch for personal and school club reasons. I always thought this project was really interesting which is why I decided to spend some time this summer working on it.
 
-## Highlights
+## How it Works
 
 - Takes large videos and filters out silence intervals
 - Each interval are consider clips which then is processed futher using opencv image processing algorithms
@@ -15,17 +17,30 @@ In this project I wanted to mass edit large videos for streams on twitch for per
 This returns a condense video of key moments within a large stream which can be taken futher for editing or whatever needs.
 
 
-## Installation
+## Install 
 
-```bash
-  pip install -r requirements.txt
+```
+pipx vidflow
 ```
 
-## Screenshots
+or 
 
-![Valorant - Full Screen](assets/processed_valorant_match.PNG)
-![Valorant - Crosshair](assets/reyna_orb_proccesed.png)
+for development
+
+```
+git clone https://github.com/andysit1/Video-Content-Pipeline.git
+pip install -e .
+```
+
+At this point, you should have the VidFlow script in the path and you can run VidFlow --help to see the optional flags.
+
+You only need to use VidFlow flags -c or -e which allow you to run the pipeline in two different modes. In compile mode, clips are culled by the average points and combined into a single file. In extract mode, you do everything except compile the video. This mode is used in conjunction with videodrill application inorder to trim the videos quickly. In most cases if you install VidFlow you will be using in -c.
+
+Once, started the program will ask some questions such as twitch streamid, name of video, and it will begin running the script.
+
+___
 
 
-## Comments
-This project is still very new and I still have lots that I want to implement, so come back every week and hopefully it will be nicer. If you have any questions send me an email at andysit173@gmail.com and let me know any feedback or changes you think will help.
+Features to Add
+- compile mode with just a video input file
+- add video example in readme.md
