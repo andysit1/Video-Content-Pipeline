@@ -52,3 +52,275 @@ INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.Data
 INFO:src.pipes.data_cache_stage:ERROR
 INFO:root:Starting Program
 INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000122B10B11C0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000002025293ED90>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000024080640E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000024080640D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000024080640DF0>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 41
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000027DD6D42670>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000027DD6D42E80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000027DD6D42C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000027DD6E46880>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000019767FB1E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000019767FB1D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000019767FB1B80>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 41
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000197681993D0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001B09E341E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001B09E341D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001B09E341B80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001B09E358EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001CFCD0B1E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001CFCD0B1D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001CFCD0B1B80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001CFCD0C8EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000240A2E04FD0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000240A2DD2F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000240A2DD2E20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000240A2ED6850>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000027367B90E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000027367B90D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000027367B90B80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000027367BA8EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000025510502E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000025510502FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000025510502BB0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000025510607850>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000021D88FB4FD0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000021D88F82F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000021D88F82E20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000021D89087850>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000020F4AB64FD0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000020F4AB32F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000020F4AB32E20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000020F4AC36850>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000152B3DD2E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000152B3DD2D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000152B3DD2B80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000152B3DE9EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001F7EA211E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001F7EA211F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001F7EA211B50>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001F7EA228EB0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001CF7FE82E20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001CF7FE82D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001CF7FE82B80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001CF7FE99EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001EBFF6B2E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001EBFF6B2F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001EBFF6B2B50>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001EBFF6C9EB0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001550C502E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001550C502F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001550C502B50>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001550C519EB0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000022157591D60>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000022157591FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000022157591D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000221575A8E20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000025F1F8C2DC0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000025F1F8C2F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000025F1F8C2B20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000025F1F8D9E80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001DD7FD12DC0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001DD7FD12F10>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001DD7FD12B20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001DD7FD29E80>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000002764C322610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000002764C322A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000002764C322C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000002764C339EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000233F22B2610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000233F22B2A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000233F22B2C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000233F22C9EE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000220FFE12610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000220FFE12A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000220FFE12C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000220FFE12F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001D068723E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001D068723FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001D068723BE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001D0687235E0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001DC7A903E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001DC7A903FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001DC7A903BE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001DC7A9035E0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001CB77123E50>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001CB77123FA0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001CB77123BE0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001CB771235E0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000278F0C33E80>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000278F0C33FD0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000278F0C33D00>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000278F0C33610>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000027B9DB12610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000027B9DB12A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000027B9DB12C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000027B9DB12F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000016BDCDD2610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000016BDCDD2A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000016BDCDD2C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000016BDCDD2F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001C13CB02610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001C13CB02A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001C13CB02C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001C13CB02F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000021510702610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000021510702A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000021510702C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000021510702F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000020CB7B92610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000020CB7B92A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000020CB7B92C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000020CB7B92F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000012EB0942610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000012EB0942A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000012EB0942C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000012EB0942F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000002567FA42610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000002567FA42A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000002567FA42C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000002567FA42F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000027904852610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000027904852A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000027904852C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000027904852F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001C8CB3F2610>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001C8CB3F2A30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001C8CB3F2C40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001C8CB3F2F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x00000293E19982B0>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000293E1A9DAC0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000293E199E910>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 82
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000293E1C4FB20>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000021339BABC40>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000021339D2C910>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000021339D387C0>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 82
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000021339E67B50>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001589C62CF10>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001589C632F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001589C6329D0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001589C632FD0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000002208483CF10>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000022084842F40>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x00000220848429D0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000022084842FD0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000021F4543E190>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000021F45441D00>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000021F45448C70>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000021F45441D30>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x0000022145A7AE20>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000022145BFE040>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x0000022145C01910>
+INFO:src.pipes.action_stage:split into clips
+INFO:src.pipes.action_stage:Start spliting clips of 82
+INFO:src.pipes.action_stage:Finish splitting into clips
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000022145D372E0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001F129EDF430>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001F129EE2580>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001F129EDCD90>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001F129EE25B0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x000001F129EE2580>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.data_cache_stage.DataCachePipe object at 0x000001B45F0AF430>
+INFO:src.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001B45F0B2580>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.action_stage.ActionPipe object at 0x000001B45F0ACD90>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001B45F0B25B0>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.compile_stage.CompileVideoPipe object at 0x000001B45F0B2580>
+INFO:src.modules.pipeline_builder:Entering Pipe <src.pipes.dl_stage.DownloadPipe object at 0x000001B45F30E7C0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x0000026977D56FD0>
+INFO:src.VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x00000209E7A8D310>
+INFO:src.VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000209E7A939A0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.action_stage.ActionPipe object at 0x00000209E7AAA850>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000209E7A93850>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x00000209E7A939A0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.dl_stage.DownloadPipe object at 0x00000209E7BA5280>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x00000259BDD26BB0>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000259BDD31FD0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.action_stage.ActionPipe object at 0x00000259BDD2B070>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000259BDD31E50>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x00000259BDD31FD0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.dl_stage.DownloadPipe object at 0x00000259BDE33460>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x0000015B1E5E82E0>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x0000015B1E5EBCD0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.action_stage.ActionPipe object at 0x0000015B1E5F2C70>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x0000015B1E5EBD00>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x0000015B1E5EBCD0>
+INFO:src.VidFlow.modules.pipeline_builder:Entering Pipe <src.VidFlow.pipes.dl_stage.DownloadPipe object at 0x0000015B1E84DF10>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x0000025522FCCF10>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x00000245A367CF10>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x00000245A3681F40>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.action_stage.ActionPipe object at 0x00000245A36819D0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x00000245A3681FD0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x00000245A3681F40>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x000001559A503FD0>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001559A4D2610>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.action_stage.ActionPipe object at 0x000001559A503FD0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001559A4D2AC0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x000001559A4D2610>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.data_cache_stage.DataCachePipe object at 0x000001DB3960CF10>
+INFO:VidFlow.pipes.data_cache_stage:ERROR self.engine.payload['is_caster_mode' 'is_caster_mode'
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_data_stage.AnalyzeDataFiles object at 0x000001DB39611F40>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.action_stage.ActionPipe object at 0x000001DB396119D0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.analyze_clip_stage.AnalyzeClipsPipe object at 0x000001DB39611FD0>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.compile_stage.CompileVideoPipe object at 0x000001DB39611F40>
+INFO:VidFlow.modules.pipeline_builder:Entering Pipe <VidFlow.pipes.dl_stage.DownloadPipe object at 0x000001DB397D1D30>
