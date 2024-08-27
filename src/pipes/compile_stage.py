@@ -37,7 +37,7 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     for line in lines:
       converted_dict = ast.literal_eval(line) #ast.literal_eval is crazy good
       data.append(converted_dict)
-      total_points += converted_dict[0]['points']
+      total_points += converted_dict['points']
 
     average_points = total_points / len(lines)
 
@@ -178,7 +178,7 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
   def compile_video(self):
     self.data.pop()
     lines = self.data #sorts and adds randomness
-    file_compile_lines = ["file {}".format(line[0]['name'].replace('\\', '/')) for line in lines[1:]]
+    file_compile_lines = ["file {}".format(line['name'].replace('\\', '/')) for line in lines[1:]]
     self.write_lines("tmp_file.txt", file_compile_lines)
     out_filename = os.path.join(self.engine.payload['clips_out'], self.engine.payload['video_name'] + ".mp4").replace('\\', '/')
     self.combine_videos_demuxer_method(out_filename)
