@@ -3,7 +3,8 @@ from .modules.pipeline_builder import PipelineEngine
 import logging
 from .pipes.dl_stage import DownloadPipe
 from .pipes.entry_stage import EntryPipe
-
+import os
+from .constants import OUTPUT_PATH
 import questionary
 
 logging.basicConfig(
@@ -11,6 +12,22 @@ logging.basicConfig(
     filename="./logs.txt",
 )
 
+def load_config():
+    if not os.path.exists(OUTPUT_PATH):
+      with open(OUTPUT_PATH, "w") as f:
+         f.write("empty")
+         f.close()
+
+    with open(OUTPUT_PATH, "r+") as f:
+        line = f.readline()
+        if line == "empty":
+          print("There is not output dir for clips and videos yet!")
+          dest_video_output = questionary.path("Please select the path you want").ask()
+          f.truncate(0)
+          f.write(dest_video_output)
+          return dest_video_output.strip()
+        else:
+           return line.strip()
 
 
 @click.command()
@@ -18,10 +35,11 @@ logging.basicConfig(
 @click.option("-e", "--extract", is_flag=True, help="extract data and analyze for videodrill.")
 @click.option("-d", "--dev", is_flag=True, help="dev mode")
 def run(compile: bool, extract: bool, dev: bool):
-    print("Hello Run" , compile, extract, dev)
-    engine = PipelineEngine()
-    flags = [compile, extract, dev]
+    dest = load_config()
 
+    engine = PipelineEngine()
+    engine.output_path = dest
+    flags = [compile, extract, dev]
     # Check if exactly one flag is set
     num_flags_set = sum(flags) #will treat false as 0
     if num_flags_set != 1:
@@ -34,7 +52,6 @@ def run(compile: bool, extract: bool, dev: bool):
     else:
        engine.compile = False
        #thus extract must be true
-
 
     try:
       #change base on your needs when running dev profile

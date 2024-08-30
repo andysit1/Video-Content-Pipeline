@@ -3,6 +3,8 @@
 import os
 import glob
 
+from VidFlow.constants import COMMUNITY_PATH, PRIVATE_PATH, OUTPUT_PATH
+
 #Note: will add try statements when I look at document to figure what exceptions it raises
 
 class FileHandleComponent:
@@ -80,9 +82,9 @@ class FileMaster(FileHandleComponent):
     def __init__(self, engine) -> None:
         self.engine = engine
         self.origin_dir : str = None
-        self.community_dir : str = os.path.join('.', 'output-video', 'community')
-        self.private_dir : str = os.path.join('.', 'output-video', 'private')
-
+        self.community_dir : str = COMMUNITY_PATH
+        self.private_dir : str = PRIVATE_PATH
+        self.output_dir : str = self.engine.output_path
 
     """
         This class will handle the logic for the directory where we store our ouput, frames, debug files
@@ -107,7 +109,7 @@ class FileMaster(FileHandleComponent):
 
     def start_community_bundle_files(self):
         community_txt_cache = os.path.join(self.community_dir, 'text_cache')
-        community_clips = os.path.join(self.community_dir, 'clips')
+        community_clips = os.path.join(self.output_dir, 'clips')
 
         ic(community_txt_cache)
         ic(community_clips)
@@ -120,7 +122,7 @@ class FileMaster(FileHandleComponent):
 
     def start_private_bundle_files(self):
         private_txt_cache = os.path.join(self.private_dir, self.engine.payload['video_name'], 'text_cache')
-        private_clips = os.path.join(self.private_dir, self.engine.payload['video_name'], 'clips')
+        private_clips = os.path.join(self.output_dir, self.engine.payload['video_name'], 'clips')
 
         ic(private_txt_cache)
         ic(private_clips)

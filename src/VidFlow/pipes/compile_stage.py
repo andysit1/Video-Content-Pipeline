@@ -57,7 +57,7 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     ic(len(self.data))
     for video in self.data[:-1]:
       try:
-        if video[0]['points'] < threshold:
+        if video['points'] < threshold:
           self.data.remove(video)
       except:
         ic('ERROR', video)
@@ -76,7 +76,7 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
 
   def sort_videos_in_order_high(self):
     def myFunc(e):
-      return e[0]['points']
+      return e['points']
 
     ic(self.data)
     #sorts the list from

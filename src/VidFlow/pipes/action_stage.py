@@ -59,19 +59,19 @@ class ActionPipe(Pipe, FFMPEGAggregate):
 
           time = round(end - start, 3)
 
-          if 0 < i or i < 10:
+          if 0 < i or i < 10: # makes file sort it properly s
               out_filename_tail = str(0) + str(i)
               out_filename = out_pattern.format(out_filename_tail)
           else:
               out_filename = out_pattern.format(i, i=i)
 
           ic(out_filename)
-
+          #adding 10 seconds front and back of clip
           self.split_video(
             in_filename=self.engine.payload['in_filename'],
             out_filename=out_filename,
-            start=start,
-            time=time
+            start=start - 10,
+            time=time + 20
           )
         logger.info("Finish splitting into clips")
 

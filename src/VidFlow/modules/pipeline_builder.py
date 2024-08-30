@@ -77,7 +77,7 @@ class PipelineEngine:
         self.PERFORMANCE = False
         self.q = Queue()
         self.compile :  bool = False
-
+        self.output_path : str
 
         #handles all the data each pipe should have...
         self.payload = {
