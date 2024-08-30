@@ -25,21 +25,24 @@ def load_config():
           dest_video_output = questionary.path("Please select the path you want").ask()
           f.truncate(0)
           f.write(dest_video_output)
+          f.close()
           return dest_video_output.strip()
         else:
-           return line.strip()
+          f.close()
+          return line.strip()
 
 
 @click.command()
 @click.option("-c", "--compile", is_flag=True, help="compile clips into video.")
 @click.option("-e", "--extract", is_flag=True, help="extract data and analyze for videodrill.")
 @click.option("-d", "--dev", is_flag=True, help="dev mode")
-def run(compile: bool, extract: bool, dev: bool):
+@click.option("-o", "--output", is_flag=True, help="location of output (clips & videos)")
+def run(compile: bool, extract: bool, dev: bool, output: bool):
     dest = load_config()
 
     engine = PipelineEngine()
     engine.output_path = dest
-    flags = [compile, extract, dev]
+    flags = [compile, extract, dev, output]
     # Check if exactly one flag is set
     num_flags_set = sum(flags) #will treat false as 0
     if num_flags_set != 1:
@@ -66,6 +69,14 @@ def run(compile: bool, extract: bool, dev: bool):
         engine.compile = True
         engine.run(EntryPipe(engine=engine))
 
+      if output:
+        new_output = questionary.path("Change output directory:").ask()
+        engine.output_path = new_output
+
+        with open(OUTPUT_PATH, "r+") as f:
+          f.truncate(0)
+          f.write(new_output)
+          f.close()
 
       if compile:
         stream_id = questionary.text("Provide Stream ID on Twitch:").ask()
