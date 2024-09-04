@@ -1,7 +1,7 @@
 # Video-Content-Pipeline
 A cli application to create video fast.
 
-Requrires ffmpeg installed!
+Requires ffmpeg and the [TwitchDownloader](https://github.com/lay295/TwitchDownloader) if you plan to pull twitch streams with streamid
 
 ## Purpose
 
@@ -17,13 +17,13 @@ In this project I wanted to mass edit large videos for streams on twitch for per
 This returns a condense video of key moments within a large stream which can be taken futher for editing or whatever needs.
 
 
-## Install 
+## Install
 
 ```
 pipx vidflow
 ```
 
-or 
+or
 
 for development
 

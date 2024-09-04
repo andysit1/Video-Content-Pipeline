@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "VidFlow"
-version = "0.1.2"
+version = "0.2.3"
 description = "making videos at lightspeed"
 authors = ["Andy Sit <andysit173@gmail.com>"]
 license = "MIT"
