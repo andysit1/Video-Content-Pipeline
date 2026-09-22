@@ -68,7 +68,11 @@ class OpenCVAggregate:
         if width > self.crosshair_offset and height > self.crosshair_offset:
             x_mid, y_mid = int(width / 2), int(height / 2)
             offset = self.crosshair_offset
-            cropped_img = img[x_mid-offset:x_mid+offset , y_mid-offset:y_mid+offset]
+            # numpy indexes as [row, col] i.e. [y, x] -- rows must be sliced
+            # by y_mid (height) and columns by x_mid (width). On any
+            # non-square frame (virtually all real footage) the swapped
+            # version cropped an off-center region instead of the middle.
+            cropped_img = img[y_mid-offset:y_mid+offset , x_mid-offset:x_mid+offset]
             return cropped_img
         return False
 

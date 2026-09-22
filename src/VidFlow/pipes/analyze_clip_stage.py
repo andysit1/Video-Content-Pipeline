@@ -33,7 +33,7 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
 
     for line in lines:
       cleaned = line[1:-2].split(', ')
-      chunks.append((float(cleaned[0]) - float(cleaned[-1])))
+      chunks.append((float(cleaned[-1]) - float(cleaned[0])))
     ic(chunks)
     return chunks
 
@@ -59,7 +59,7 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
     self.write_lines(path=self.analyze_data, lines=self.score)
 
   def sort_video_order(self):
-    di = sorted(self.score, key="points")
+    di = sorted(self.score, key=lambda entry: entry['points'])
     ic(di)
 
 
@@ -81,18 +81,20 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
 
         cap = cv.VideoCapture(os.path.abspath(clip))
         frame_count = 0
+        data_obj = None
         while cap.isOpened():
-            frame_count += 1
             ret, frame = cap.read()
-
-            if not frame_count % 30:
-                continue
+            frame_count += 1
 
             # if frame is read correctly ret is True
             if not ret:
                 cap.release()
                 break
 
+            # only sample every 30th frame; checked after the EOF check above
+            # so end-of-stream is never missed on a skipped frame
+            if frame_count % 30:
+                continue
 
             if len(frame.shape) == 2:  # Single channel image
                 gray_frame = frame  # Already grayscale
@@ -118,7 +120,10 @@ class AnalyzeClipsPipe(Pipe, OpenCVAggregate, FileHandleComponent):
                 'points' : gaus_white_percentage * 2 + canny_white_percentage * 0.5,
               }
 
-        self.score.append(data_obj)
+        if data_obj is not None:
+          self.score.append(data_obj)
+        else:
+          ic("No sampled frames produced for clip, skipping", clip)
       self.cache_analyze_data()
 
     self.on_done()

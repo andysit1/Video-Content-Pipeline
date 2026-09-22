@@ -87,6 +87,15 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
           # Finished with non-silence.
           chunk_ends.append(end_time or 10000000.)
 
+      # When a clip ends *during* silence, ffmpeg still logs a trailing
+      # silence_end for it at EOF, with a timestamp that can overshoot the
+      # clip's actual total duration. Treated as "silence resumed here",
+      # that becomes a phantom chunk with no real content (start > end).
+      # There's nothing after the clip's real end, so drop it.
+      if end_time is not None and chunk_starts and chunk_starts[-1] >= end_time:
+          chunk_starts.pop()
+          chunk_ends.pop()
+
       chunks = list(zip(chunk_starts, chunk_ends))
 
       ic("Total before clean Lines", len(chunks))
@@ -96,21 +105,19 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
     ic("no analyze_silence triggered")
   def clean_chunks(self, chunks : list):
     seconds_between_clips_varriance = 4
-    silence_intervals = chunks
-    previous_end = 0
-    #merges clips intervals together if within 3 second intervals of each other
-    for i, (start_time, end_time) in enumerate(silence_intervals):
-        if i == 0:
-            previous_end = end_time
-            continue
 
-        if start_time - previous_end <= seconds_between_clips_varriance:
-            silence_intervals[i - 1] = silence_intervals[i - 1] + silence_intervals[i]
-            silence_intervals.remove(silence_intervals[i])
-        previous_end = end_time
+    #merges clip intervals together if within `seconds_between_clips_varriance` of each other.
+    #built as a new list instead of mutating `chunks` in place while iterating over it, which
+    #previously shifted indices and caused some adjacent intervals to never be compared/merged.
+    merged_intervals = []
+    for start_time, end_time in chunks:
+        if merged_intervals and start_time - merged_intervals[-1][1] <= seconds_between_clips_varriance:
+            merged_intervals[-1] = (merged_intervals[-1][0], end_time)
+        else:
+            merged_intervals.append((start_time, end_time))
 
     #clips should be atless 1.5 inlength
-    cleaned_intervals = [interval for interval in silence_intervals if round(interval[-1] - interval[0], 3) >= 1.5]
+    cleaned_intervals = [interval for interval in merged_intervals if round(interval[-1] - interval[0], 3) >= 1.5]
     self.write_lines(self.chunk_path, cleaned_intervals)
 
   def get_chunk_data(self):
@@ -120,6 +127,8 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
     for line in lines:
       cleaned = line[1:-2].split(', ')
       chunks.append((float(cleaned[0]), float(cleaned[-1])))
+
+    return chunks
 
   def on_run(self):
     print("Running AnalyzeDataFiles")

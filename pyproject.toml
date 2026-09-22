@@ -92,6 +92,13 @@ wcwidth = "0.2.13"
 [tool.poetry.scripts]
 VidFlow = "VidFlow.cli:run"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
