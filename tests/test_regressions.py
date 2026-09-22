@@ -10,9 +10,35 @@ import numpy as np
 
 from VidFlow.aggregate.filehandler_component import FileHandleComponent
 from VidFlow.aggregate.opencv_component import OpenCVAggregate
+from VidFlow.modules.pipeline_builder import Machine
 from VidFlow.pipes.action_stage import ActionPipe
 from VidFlow.pipes.analyze_clip_stage import AnalyzeClipsPipe
 from VidFlow.pipes.analyze_data_stage import AnalyzeDataFiles
+
+
+class TestMachineRegressions:
+    def test_transitioning_to_none_actually_ends_the_pipeline(self):
+        # regression: update() used `if self.next_state:`, a truthiness
+        # check that can't tell "a pipe explicitly ended the pipeline by
+        # setting next_state = None" (e.g. AnalyzeClipsPipe.on_done() when
+        # not compiling) apart from "nothing has been queued yet". current
+        # would never become None, so PipelineEngine.loop() would spin
+        # forever re-running the last pipe instead of stopping -- a real
+        # hang on every non-compile ("extract"-only) CLI run.
+        machine = Machine()
+        machine.next_state = "some pipe instance"
+        machine.update()
+        assert machine.current == "some pipe instance"
+
+        machine.next_state = None  # a pipe ending the pipeline
+        machine.update()
+        assert machine.current is None
+
+    def test_update_is_a_no_op_when_nothing_has_been_queued(self):
+        machine = Machine()
+        machine.current = "still running this pipe"
+        machine.update()  # next_state was never set
+        assert machine.current == "still running this pipe"
 
 
 def test_crop_image_crosshair_centers_correctly_on_non_square_frames():

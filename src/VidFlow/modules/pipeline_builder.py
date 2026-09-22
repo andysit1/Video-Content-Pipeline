@@ -57,16 +57,31 @@ class Machine:
         Initialize a Machine object.
         """
         self.current = None
-        self.next_state = None
+        self._next_state = None
+        # a pipe ending the pipeline sets next_state = None on purpose (e.g.
+        # AnalyzeClipsPipe.on_done() when not compiling); a truthiness check
+        # on next_state can't tell that apart from "nothing queued yet", so
+        # track whether a transition was actually queued instead.
+        self._next_state_pending = False
+
+    @property
+    def next_state(self):
+        return self._next_state
+
+    @next_state.setter
+    def next_state(self, value):
+        self._next_state = value
+        self._next_state_pending = True
 
     def update(self):
         """
         Update the current state.
         """
-        if self.next_state:
-            logger.info(msg="Entering Pipe {}".format(self.next_state))
-            self.current = self.next_state
-            self.next_state = None
+        if self._next_state_pending:
+            logger.info(msg="Entering Pipe {}".format(self._next_state))
+            self.current = self._next_state
+            self._next_state = None
+            self._next_state_pending = False
 
 
 class PipelineEngine:

@@ -69,9 +69,28 @@ class FakeEngine:
         self.compile = compile_flag
         self.machine = Machine()
         self.output_path = None
+        self.running = True
 
     def load_payload(self, payload: dict):
         self.payload = payload
+
+    def loop(self, max_steps=1000):
+        # mirrors PipelineEngine.loop(), bounded so a broken on_done() chain
+        # fails the test instead of hanging it.
+        steps = 0
+        while self.running:
+            self.machine.update()
+            if self.machine.current:
+                self.machine.current.on_run()
+            else:
+                self.running = False
+            steps += 1
+            if steps > max_steps:
+                raise RuntimeError("FakeEngine.loop() exceeded max_steps -- runaway pipe chain?")
+
+    def run(self, state):
+        self.machine.current = state
+        self.loop()
 
 
 @pytest.fixture
@@ -152,3 +171,34 @@ def make_color_clip(tmp_path):
         pytest.skip("requires the ffmpeg binary plus cv2/numpy/ffmpeg-python")
 
     return _make
+
+
+@pytest.fixture
+def spiky_source(tmp_path):
+    """
+    A short (10s) file with a known loud spike in the middle: 4s quiet,
+    2s loud tone, 4s quiet. Read with `-re` (native frame rate) this
+    simulates a live source for the Tier 1 buffer/trigger/cutter tests
+    without needing a real Twitch stream.
+    """
+    if not (FFMPEG_AVAILABLE and MEDIA_LIBS_AVAILABLE):
+        pytest.skip("requires the ffmpeg binary plus cv2/numpy/ffmpeg-python")
+
+    out_path = tmp_path / "spiky_source.mp4"
+    run_ffmpeg([
+        "-f", "lavfi", "-i", "color=c=black:s=320x240:r=10:d=10",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:duration=4",
+        "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100:duration=2",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:duration=4",
+        "-filter_complex",
+        "[1:a][2:a][3:a]concat=n=3:v=0:a=1[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-shortest",
+        # force a keyframe every second: RollingBufferRecorder segments with
+        # `-c copy`, which can only cut on keyframes, and libx264's default
+        # GOP is much longer than our 1s test segments would need.
+        "-force_key_frames", "expr:gte(t,n_forced*1)",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+        str(out_path),
+    ])
+    return {"path": out_path, "duration": 10, "spike_start": 4.0, "spike_end": 6.0}
