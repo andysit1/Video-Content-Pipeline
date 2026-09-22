@@ -59,11 +59,17 @@ this works from the repo root without an editable install.)
   window math against a fake Twitch client, and a real end-to-end run
   proving it hands off cleanly to the unmodified `ActionPipe`/
   `AnalyzeClipsPipe`.
-- `test_audio_trigger.py` -- `AudioSpikeTrigger`'s rolling-baseline/spike
-  logic, pure Python, no ffmpeg needed.
+- `test_audio_trigger.py` / `test_chat_trigger.py` -- `AudioSpikeTrigger`/
+  `ChatVelocityTrigger`'s rolling-baseline/spike logic, pure Python, no
+  ffmpeg or network needed.
+- `test_chat_monitor.py` -- `ChatMonitor`'s IRC line parsing and rate
+  window against a fake in-memory connection (including one test that
+  drives the real background thread), no real Twitch chat needed.
 - `test_live_buffer_and_cutter.py` / `test_live_watcher.py` -- Tier 1
   (`RollingBufferRecorder`, `measure_mean_volume`, the segment-cutting
-  logic, and the full `InstantClipWatcher` loop) against a real ffmpeg
-  process reading a generated clip with `-re`, simulating a live source
-  with a known loud spike so the whole record -> detect -> cut mechanism
-  is validated without needing a real Twitch stream.
+  logic, and the full `InstantClipWatcher` loop -- including a chat-only
+  spike with no audio spike, proving the two triggers combine correctly)
+  against a real ffmpeg process reading a generated clip with `-re`,
+  simulating a live source with a known loud spike so the whole record ->
+  detect -> cut mechanism is validated without needing a real Twitch
+  stream.

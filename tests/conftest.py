@@ -202,3 +202,25 @@ def spiky_source(tmp_path):
         str(out_path),
     ])
     return {"path": out_path, "duration": 10, "spike_start": 4.0, "spike_end": 6.0}
+
+
+@pytest.fixture
+def quiet_source(tmp_path):
+    """
+    A short (10s) file with constant near-silent audio and no volume
+    spike -- for proving a trigger signal *other than* audio (e.g. chat)
+    can still fire the watcher on its own.
+    """
+    if not (FFMPEG_AVAILABLE and MEDIA_LIBS_AVAILABLE):
+        pytest.skip("requires the ffmpeg binary plus cv2/numpy/ffmpeg-python")
+
+    out_path = tmp_path / "quiet_source.mp4"
+    run_ffmpeg([
+        "-f", "lavfi", "-i", "color=c=black:s=320x240:r=10:d=10",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:duration=10",
+        "-shortest",
+        "-force_key_frames", "expr:gte(t,n_forced*1)",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+        str(out_path),
+    ])
+    return {"path": out_path, "duration": 10}
