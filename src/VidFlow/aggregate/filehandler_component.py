@@ -35,7 +35,7 @@ class FileHandleComponent:
     def remove_all_contents_output_frame(self, path: str):
 
         if os.path.exists(path):
-            frames = glob.glob(self.input_video_path)
+            frames = glob.glob(os.path.join(path, "*"))
 
             for frame in frames:
                 ic("Removed {}".format(frame))

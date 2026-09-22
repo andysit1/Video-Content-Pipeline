@@ -31,18 +31,11 @@ class DataCachePipe(Pipe, FileHandleComponent):
 
 
   def is_caster_mode_activated(self) -> bool:
-    try:
-      if not self.engine.payload['is_caster_mode']:
-        return False
-    except ValueError as e:
-      logger.info("VALUE ERROR self.engine.payload['is_caster_mode' {}".format(e))
-    except Exception as e:
-      logger.info("ERROR self.engine.payload['is_caster_mode' {}".format(e))
-      return self.on_error()
-
-
-
-    return True
+    # payload is fully replaced (not merged) by cli.py, so 'is_caster_mode' is
+    # frequently absent -- use .get() instead of indexing to avoid a KeyError
+    # on every run (previously mis-caught as ValueError, which dict lookups
+    # never raise, and fell through to Exception -> on_error()).
+    return bool(self.engine.payload.get('is_caster_mode'))
 
   #check if cache exist else, just move onto the next stage (some times we want to re compile videos or try new algos)
   def check_data_exist(self):
