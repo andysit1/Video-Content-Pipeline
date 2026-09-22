@@ -179,9 +179,13 @@ class CompileVideoPipe(Pipe, FFMPEGAggregate):
     self.data.pop()
     lines = self.data #sorts and adds randomness
     file_compile_lines = ["file {}".format(line['name'].replace('\\', '/')) for line in lines]
-    self.write_lines("tmp_file.txt", file_compile_lines)
+    # was a bare "tmp_file.txt", written wherever the process happened to be
+    # launched from (and clobbered by concurrent runs); keep it alongside
+    # this video's other cache files instead.
+    concat_list_path = os.path.join(self.engine.payload['cache_txt_out'], 'tmp_file.txt')
+    self.write_lines(concat_list_path, file_compile_lines)
     out_filename = os.path.join(self.engine.payload['clips_out'], self.engine.payload['video_name'] + ".mp4").replace('\\', '/')
-    self.combine_videos_demuxer_method(out_filename)
+    self.combine_videos_demuxer_method(out_filename, concat_list_path)
 
   def on_done(self):
     #pass back to the engine to check if we still

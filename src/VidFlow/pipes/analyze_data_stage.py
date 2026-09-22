@@ -87,6 +87,15 @@ class AnalyzeDataFiles(Pipe, FileHandleComponent):
           # Finished with non-silence.
           chunk_ends.append(end_time or 10000000.)
 
+      # When a clip ends *during* silence, ffmpeg still logs a trailing
+      # silence_end for it at EOF, with a timestamp that can overshoot the
+      # clip's actual total duration. Treated as "silence resumed here",
+      # that becomes a phantom chunk with no real content (start > end).
+      # There's nothing after the clip's real end, so drop it.
+      if end_time is not None and chunk_starts and chunk_starts[-1] >= end_time:
+          chunk_starts.pop()
+          chunk_ends.pop()
+
       chunks = list(zip(chunk_starts, chunk_ends))
 
       ic("Total before clean Lines", len(chunks))

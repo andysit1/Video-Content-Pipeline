@@ -83,7 +83,6 @@ class ActionPipe(Pipe, FFMPEGAggregate):
       if not self.__DEBUG:
         ic.enable()
         self.split_into_clips()
-        self.on_done()
 
       self.on_done()
 
