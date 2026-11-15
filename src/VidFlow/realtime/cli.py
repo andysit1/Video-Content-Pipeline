@@ -4,6 +4,11 @@ Subcommands::
 
     vidflow-live replay VIDEO [VIDEO ...] [--speed 1|N|max] [--out DIR] [--transcode]
                         [--session NAME] [--set KEY=VALUE ...] [-v]
+    vidflow-live eval VIDEO [--truth FILE] [--iou 0.5] [--out DIR] [--set KEY=VALUE ...] [--json FILE|-]
+    vidflow-live retune EVENTS.jsonl|SESSION_DIR [--set KEY=VALUE ...] [--json FILE|-]
+    vidflow-live bench VIDEO --channels N --seconds M [--out DIR] [--set KEY=VALUE ...] [--json FILE|-]
+
+``eval``, ``retune`` and ``bench`` are documented in ``eval.py``.
 
 ``replay`` follows one simulated channel per file (a ``ReplaySource``), prints
 each clip as it lands and the latency summary at the end. ``--set`` overrides
@@ -210,6 +215,150 @@ def _report(results: Mapping[str, ChannelResult]) -> None:
         _echo(f"    log: {r.session_dir / 'events.jsonl'}")
         for line in format_latency(r.latency):
             _echo(line)
+
+
+# --------------------------------------------------------------------------- eval / retune / bench (T9)
+
+
+def _setup_logging(verbose: int) -> None:
+    level = logging.WARNING if verbose == 0 else logging.INFO if verbose == 1 else logging.DEBUG
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stderr)
+
+
+def _config_from(overrides: Sequence[str], base: Optional[RealtimeConfig] = None) -> RealtimeConfig:
+    try:
+        return parse_overrides(overrides, base).validate()
+    except ConfigError as exc:
+        raise click.BadParameter(str(exc), param_hint="--set") from exc
+
+
+def _emit(lines: Sequence[str], data: Mapping[str, Any], json_out: Optional[str]) -> None:
+    """Print the text report, or the JSON to stdout with ``--json -``; ``--json FILE`` writes it too."""
+    import json
+
+    from .session import to_jsonable
+
+    text = json.dumps(to_jsonable(data), indent=2)
+    if json_out == "-":
+        _echo(text)
+        return
+    for line in lines:
+        _echo(line)
+    if json_out:
+        Path(json_out).write_text(text + "\n", encoding="utf-8")
+        _echo(f"json: {json_out}")
+
+
+_json_option = click.option(
+    "--json", "json_out", default=None, metavar="FILE",
+    help="Also write the full report as JSON to FILE ('-': print only the JSON).",
+)
+_set_option = click.option(
+    "--set", "overrides", multiple=True, metavar="KEY=VALUE", help="Override a RealtimeConfig setting; repeatable."
+)
+_verbose_option = click.option("-v", "--verbose", count=True, help="-v: info logging, -vv: debug.")
+
+
+@main.command("eval")
+@click.argument("video", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--truth", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None,
+              help="Reference windows (JSON list of [start, end], or 'start end' lines) instead of the offline silencedetect reference.")
+@click.option("--iou", "min_iou", default=0.5, show_default=True, type=click.FloatRange(0.0, 1.0, min_open=True),
+              help="Overlap (intersection over union) needed for a match.")
+@click.option("--out", "out_dir", default=None, type=click.Path(file_okay=False, path_type=Path),
+              help="Keep the run's session log under <out>/eval/<session>/ (for retune). Default: a temporary directory.")
+@click.option("--session", default=None, help="Session name (default: local date and time).")
+@click.option("--transcode", is_flag=True, help="Re-encode with a keyframe every segment before replaying.")
+@_set_option
+@_json_option
+@_verbose_option
+def eval_cmd(
+    video: Path,
+    truth: Optional[Path],
+    min_iou: float,
+    out_dir: Optional[Path],
+    session: Optional[str],
+    transcode: bool,
+    overrides: Tuple[str, ...],
+    json_out: Optional[str],
+    verbose: int,
+) -> None:
+    """Score the online detector on VIDEO against reference windows (no clips are cut)."""
+    from .eval import evaluate, format_eval
+
+    _setup_logging(verbose)
+    config = _config_from(overrides)
+    report = evaluate(
+        video, config, truth=truth, out_dir=out_dir, session=session, min_iou=min_iou, transcode=transcode
+    )
+    lines = format_eval(report)
+    if report.session_dir is not None:
+        lines.append(f"log: {report.session_dir / 'events.jsonl'}")
+    _emit(lines, report.to_dict(), json_out)
+
+
+@main.command()
+@click.argument("events", type=click.Path(exists=True, path_type=Path))
+@_set_option
+@_json_option
+@_verbose_option
+def retune(events: Path, overrides: Tuple[str, ...], json_out: Optional[str], verbose: int) -> None:
+    """Re-run the segmenter over a session log (EVENTS.jsonl or its directory) with changed settings.
+
+    Settings start from the ones the session logged; --set changes them. No video is read.
+    """
+    from .eval import format_retune
+    from .eval import retune as do_retune
+    from .session import read_config
+
+    _setup_logging(verbose)
+    try:
+        base = read_config(events) or RealtimeConfig()
+        config = parse_overrides(overrides, base)
+        result = do_retune(events, config)
+    except (ConfigError, ValueError) as exc:
+        raise click.BadParameter(str(exc), param_hint="--set") from exc
+    except OSError as exc:
+        raise click.BadParameter(str(exc), param_hint="EVENTS") from exc
+    _emit(format_retune(result), result.to_dict(), json_out)
+
+
+@main.command()
+@click.argument("video", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--channels", "-n", default=4, show_default=True, type=click.IntRange(min=1), help="Simulated channels.")
+@click.option("--seconds", "-m", default=60.0, show_default=True, type=click.FloatRange(min=0, min_open=True),
+              help="How long to follow them (wall seconds).")
+@click.option("--speed", default="1", show_default=True, help="Playback rate of every channel (1 = real time).")
+@click.option("--out", "out_dir", default=None, type=click.Path(file_okay=False, path_type=Path),
+              help="Keep clips and logs under <out>/<channel>/bench/. Default: a temporary directory.")
+@click.option("--transcode", is_flag=True, help="Re-encode with a keyframe every segment before replaying.")
+@_set_option
+@_json_option
+@_verbose_option
+def bench(
+    video: Path,
+    channels: int,
+    seconds: float,
+    speed: str,
+    out_dir: Optional[Path],
+    transcode: bool,
+    overrides: Tuple[str, ...],
+    json_out: Optional[str],
+    verbose: int,
+) -> None:
+    """Follow N simulated channels of VIDEO at 1x for M seconds; report CPU, memory, lag and latency."""
+    from .eval import format_bench, run_bench
+
+    _setup_logging(verbose)
+    rate = parse_speed(speed)
+    if rate is None:
+        raise click.BadParameter("bench needs a paced speed", param_hint="--speed")
+    config = _config_from(overrides)
+    _echo(f"following {channels} channel(s) for {seconds:g} s ...")
+    report = run_bench(video, channels, seconds, config, out_dir=out_dir, speed=rate, transcode=transcode)
+    _emit(format_bench(report), report.to_dict(), json_out)
+    if report.failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
