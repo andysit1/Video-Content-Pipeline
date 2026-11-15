@@ -31,6 +31,7 @@ pytest = ">=7.4"
 
 [tool.poetry.scripts]
 VidFlow = "VidFlow.cli:run"
+vidflow-live = "VidFlow.realtime.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
