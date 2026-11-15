@@ -462,3 +462,18 @@ them. Listed so nobody copies them.
 3. Ground truth from viewer-made clips; a learned ranker fed by post
    performance.
 4. Per-game `GameProfile`s chosen from the stream's category.
+
+## Implementation notes (where the built code differs from this document)
+
+The code is authoritative. These points were found while building and supersede the sections above.
+
+- **Threshold hysteresis (6.4).** While a window is open, samples are judged against the threshold frozen when it opened. Without this a sustained loud moment raises the rolling percentile to its own level and cuts itself short.
+- **Percentile convention (6.3/6.4).** The segmenter uses its own histogram whose percentile is the lower edge of the 1 dB bin, so a sample at the threshold's own level always counts as loud. `audio.RollingLoudnessStats` (numpy-style interpolation) exists but the pipeline does not use it for detection.
+- **Known limit: loud streams raise their own bar.** Once loud samples exceed about 10% of the stats window, the 90th percentile sits at the loud level. Detection still works for equal-level bursts but starts about one hop late; a stream that is loud most of the time will detect little. `threshold_percentile` and `stats_window_s` are the dials.
+- **Sample timing (6.3).** Loudness samples are stamped from an anchor (the first segment's start) plus a running sample count, giving an exact 0.1 s grid; the anchor resets on discontinuity or when drift exceeds 0.25 s. Levels are RMS over all channels (not a mono downmix, which reads 3 dB hot).
+- **Segmenting (6.1).** `-segment_time_delta` is needed or a keyframe exactly on a boundary is missed. AAC priming makes media time run about 21 ms behind source time on the fixture.
+- **Clip writing (6.5).** FFmpeg exits 0 on a corrupt or missing segment, so the writer passes `-xerror` and probes the output duration after each cut. It maps video and audio only (`-dn`), because HLS segments can carry ID3 data streams that MP4 cannot hold. Temp files are `<name>.mp4.<token>.partial`.
+- **Visual scoring (6.6).** Sampled mode on 1080p60 costs about 2.9 s per 20 s clip (the spike's 1.1 s was optimistic); keyframes mode costs about 0.2 s but yields one frame per source keyframe interval, so short windows on a 2 s keyframe interval get only 2–3 frames.
+- **Job queue (6.8).** When full, the oldest queued score job is dropped first; a cut is dropped only if no score job is queued. Ingest never waits. A score job waits for its own cut.
+- **Additions.** `RealtimeConfig` gained `sample_fps` (4.0), `queue_size` (64) and `clip_timeout_s` (30). The session log has an `error` event. `warmup_s=30` hides the fixture's first burst, so fixture runs use `--set warmup_s=5`.
+- **Measured time-to-clip (7).** About 4.2 s at 1x on the fixture (4.0 s merge gap + ~0.2 s cut), under the 5–7 s estimate.
