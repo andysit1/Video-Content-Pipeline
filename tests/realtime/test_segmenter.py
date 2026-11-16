@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from VidFlow.realtime.config import RealtimeConfig
-from VidFlow.realtime.segmenter import HistogramLoudnessStats, LoudnessStats, OnlineSegmenter
+from VidFlow.realtime.segmenter import WEIGHT_UNIT, HistogramLoudnessStats, LoudnessStats, OnlineSegmenter
 from VidFlow.realtime.types import LoudnessSample, Window, make_window_id
 
 HOP = 0.1
@@ -81,18 +81,75 @@ def test_short_burst_discarded() -> None:
 
 
 def test_long_burst_split_at_max_len() -> None:
-    windows = run(series(200, [(40, 140)]))
+    # Against a long quiet history a 100 s burst is a moment: its first max_len
+    # is reported (forced). Its samples then enter the background at full
+    # weight, and from then on the level is "normal": the re-judged rest is quiet.
+    windows = run(series(800, [(640, 740)]))
     spans = [(round(w.start, 6), round(w.end, 6), w.forced) for w in windows]
-    assert spans == [(40, 85, True), (85, 130, True), (130, 140, False)]
+    assert spans == [(640, 685, True)]
 
 
-def test_nothing_during_warmup() -> None:
+def test_max_len_split_while_background_does_not_move() -> None:
+    # With a long enough history the burst stays under 10 % of the background
+    # throughout, the bar never moves, and max_len splits the burst as before.
+    cfg = CFG.replace(stats_window_s=3000.0, max_len_s=20.0, retention_s=120.0)
+    windows = run(series(2600, [(2500, 2555)]), cfg)
+    spans = [(round(w.start, 6), round(w.end, 6), w.forced) for w in windows]
+    assert spans == [(2500, 2520, True), (2520, 2540, True), (2540, 2555, False)]
+
+
+def test_level_change_is_rejudged_not_reported() -> None:
+    # Quiet, then the stream stays 27 dB louder (a game starts) with one real
+    # peak. The rise opens a window that runs to max_len; with its samples in
+    # the background the bar moves up, the span is re-judged, and only the peak
+    # (judged against the new level) is reported.
+    samples = series(240, [(120, 240)], quiet=-45.0, loud=-18.0)
+    samples = [LoudnessSample(s.t, -4.0 if 150 <= s.t < 156 - 1e-9 else s.db) for s in samples]
     seg = OnlineSegmenter("ch", CFG)
-    out = []
-    for s in series(30, [(10, 16), (20, 27)]):
-        out += seg.feed([s])
-        assert not seg.is_open
-    assert out == [] and seg.flush() == []
+    windows = seg.feed(samples) + seg.flush()
+    assert [(round(w.start, 6), round(w.end, 6)) for w in windows] == [(150, 156)]
+    assert seg.rejudged == 1
+    assert windows[0].stats["threshold_db"] == pytest.approx(-18.0 + CFG.rise_db, abs=1.0)
+
+
+def test_warmup_is_judged_with_hindsight_not_skipped() -> None:
+    samples = series(60, [(10, 16), (40, 46)])
+    seg = OnlineSegmenter("ch", CFG)
+    emitted = []
+    for i, s in enumerate(samples):
+        for w in seg.feed([s]):
+            emitted.append((i, round(w.start, 6), round(w.end, 6)))
+        if i < 299:
+            assert not seg.is_open and not seg.warmed_up
+    assert seg.flush() == []
+    # The warm-up window comes out with the sample that completes warmup_s (index 299).
+    assert emitted == [(299, 10, 16), (499, 40, 46)]
+    assert seg.warmup_threshold == CFG.floor_db
+
+
+def test_flush_judges_a_short_stream() -> None:
+    seg = OnlineSegmenter("ch", CFG)
+    assert seg.feed(series(20, [(5, 9)])) == []
+    (w,) = seg.flush()
+    assert (w.start, round(w.end, 6), w.forced) == (5, 9, False)
+    assert seg.flush() == []
+
+
+def test_reset_during_warmup_is_replayed() -> None:
+    seg = OnlineSegmenter("ch", CFG)
+    seg.feed(series(10, [(6, 10)]))
+    assert seg.reset() == []  # recorded, not applied yet
+    later = [LoudnessSample(10 + s.t, s.db) for s in series(25, [(0, 2)])]
+    windows = seg.feed(later) + seg.flush()
+    # The burst 6..12 is cut at the reset (10) as the live path would have done.
+    assert [(round(w.start, 6), round(w.end, 6), w.forced) for w in windows] == [(6, 10, True), (10, 12, False)]
+
+
+def test_warmup_dominated_by_one_level_takes_it_as_normal() -> None:
+    # Known limit: the window-weight budget (about 31 %) applies to the short
+    # warm-up history too, so a level filling ~43 % of it is the norm.
+    seg = OnlineSegmenter("ch", CFG)
+    assert seg.feed(series(30, [(10, 16), (20, 27)])) + seg.flush() == []
 
 
 def test_warmup_counts_samples_not_media_time() -> None:
@@ -119,17 +176,45 @@ def test_window_emitted_by_sample_completing_gap() -> None:
 
 def _noisy_series() -> List[LoudnessSample]:
     rng = np.random.default_rng(1234)
-    base = series(300, [(35, 38), (40, 47), (60, 61), (80, 140), (150, 152.5), (155, 156), (200, 260)])
+    base = series(
+        300, [(12, 15), (35, 38), (40, 47), (60, 61), (80, 100), (150, 152.5), (155, 156), (200, 226), (250, 253)]
+    )
     return [LoudnessSample(s.t, s.db + float(rng.normal(0, 0.3))) for s in base]
 
 
 def test_batching_does_not_change_result() -> None:
     samples = _noisy_series()
     whole = run(samples)
-    assert len(whole) >= 4
+    assert len(whole) >= 6
+    assert whole[0].start == pytest.approx(12)  # found in the warm-up
     assert run(samples, chunk=1) == whole
     assert run(samples, chunk=20) == whole
     assert run(samples, chunk=7) == whole
+    assert run(samples, chunk=299) == whole  # a batch ending just before the warm-up completes
+
+
+def test_batching_does_not_change_result_with_rejudge_and_resets() -> None:
+    samples = series(240, [(20, 25), (120, 240)], quiet=-45.0, loud=-18.0)
+    samples = [LoudnessSample(s.t, -4.0 if 150 <= s.t < 156 - 1e-9 else s.db) for s in samples]
+
+    resets = (220, 1000)  # discontinuities: one inside a warm-up burst, one live
+
+    def go(chunk: int) -> List[Window]:
+        seg = OnlineSegmenter("ch", CFG)
+        out: List[Window] = []
+        cuts = sorted(set(range(0, len(samples), chunk)) | set(resets)) + [len(samples)]
+        for a, b in zip(cuts, cuts[1:]):
+            if a in resets:
+                out += seg.reset()
+            out += seg.feed(samples[a:b])
+        return out + seg.flush()
+
+    whole = go(len(samples))
+    assert [(round(w.start, 6), round(w.end, 6), w.forced) for w in whole] == [
+        (20, 22, True), (22, 25, False), (150, 156, False)
+    ]
+    for chunk in (1, 7, 50, 100):
+        assert go(chunk) == whole
 
 
 def test_constant_noise_below_floor_gives_nothing() -> None:
@@ -234,3 +319,109 @@ def test_histogram_stats_edge_values() -> None:
     for v in [-40.0] * 50 + [-4.9] * 50:
         st2.update(v)
     assert -4.9 >= st2.percentile(90)
+
+
+# --------------------------------------------------------------------------- the threshold rule
+
+
+def test_weighted_histogram_percentile() -> None:
+    st = HistogramLoudnessStats(100, 0.1)
+    for _ in range(80):
+        st.update(-40.0)
+    for _ in range(20):
+        st.update_weighted(-5.0, WEIGHT_UNIT // 4)  # 20 samples at a quarter weight = 5 full
+    assert st.count == 100
+    assert st.percentile(90) == -40.0  # 5 / 85 of the weight is loud: under 10 %
+    assert st.percentile(97) == -5.0
+    # Plain update() is update_weighted(WEIGHT_UNIT): the unweighted rank rule
+    # (checked against numpy in test_histogram_stats_match_numpy_within_1db).
+    # All-zero weights fall back to counting samples.
+    z = HistogramLoudnessStats(10, 0.1)
+    for v in (-30.0, -20.0, -10.0):
+        z.update_weighted(v, 0)
+    assert z.percentile(50) == -20.0
+    with pytest.raises(ValueError):
+        z.update_weighted(-1.0, -1)
+
+
+def test_loud_bed_is_not_a_highlight_but_peaks_above_it_are() -> None:
+    # Bed at -20 dBFS (above floor_db) with +/-1 dB jitter; peaks of different levels.
+    rng = np.random.default_rng(11)
+    peaks = {(50.0, 55.0): -8.0, (90.0, 96.0): -5.0, (130.0, 134.0): -11.0}
+    samples = []
+    for i in range(1800):
+        t = i * HOP
+        lvl = next((v for (a, b), v in peaks.items() if a <= t < b - 1e-9), -20.0)
+        samples.append(LoudnessSample(t, lvl + float(rng.normal(0, 0.5))))
+    windows = run(samples)
+    assert [(round(w.start), round(w.end)) for w in windows] == list((round(a), round(b)) for a, b in peaks)
+    for w in windows:
+        assert w.stats["threshold_db"] == pytest.approx(-20 + CFG.rise_db, abs=1.5)
+
+
+def test_mostly_loud_stream_still_finds_louder_moments() -> None:
+    # Loud (-15) 80 % of the time with quiet gaps; two moments 10 dB louder.
+    gaps = [(g, g + 2.0) for g in range(5, 300, 10)]
+    samples = []
+    for i in range(3000):
+        t = i * HOP
+        db = -50.0 if any(a <= t < b - 1e-9 for a, b in gaps) else -15.0
+        if 100 <= t < 104 - 1e-9 or 201 <= t < 204 - 1e-9:
+            db = -5.0
+        samples.append(LoudnessSample(t, db))
+    windows = run(samples)
+    assert [(round(w.start, 6), round(w.end, 6)) for w in windows] == [(100, 104), (201, 204)]
+
+
+def test_detected_moments_do_not_raise_the_bar_for_quieter_ones() -> None:
+    # A long, very loud moment, then a smaller one. With every sample counted
+    # in full (the old rule) the first fills 23 % of the history and puts the
+    # 90th percentile at its level, hiding the second.
+    samples = series(160, [(40, 72)], loud=-5.0)
+    samples = [LoudnessSample(s.t, -15.0 if 140 <= s.t < 145 - 1e-9 else s.db) for s in samples]
+    spans = [(round(w.start, 6), round(w.end, 6)) for w in run(samples)]
+    assert spans == [(40, 72), (140, 145)]
+    old_like = CFG.replace(window_weight=1.0, rise_db=0.0)
+    assert [(round(w.start, 6), round(w.end, 6)) for w in run(samples, old_like)] == [(40, 72)]
+
+
+def test_modulated_bed_above_floor_gives_nothing() -> None:
+    # The old rule (90th percentile, no rise) flagged the crests of any bed above floor_db.
+    t = np.arange(3000) * HOP
+    rng = np.random.default_rng(5)
+    dbs = -25.0 + 4.0 * np.sin(2 * np.pi * 0.08 * t) + rng.normal(0, 0.7, t.size)
+    assert run([LoudnessSample(float(a), float(b)) for a, b in zip(t, dbs)]) == []
+
+
+def test_frequent_moments_become_normal() -> None:
+    # Known limit: a level that keeps being detected becomes the norm once it
+    # fills about (1-p)/(w*p + 1-p) of the history (31 % at p=90, w=0.25).
+    bursts = [(float(a), float(a + 5)) for a in range(40, 600, 10)]  # 50 % of the time from t=40
+    windows = run(series(600, bursts))
+    assert 0 < len(windows) < len(bursts) // 2
+    assert all(w.end <= 300 for w in windows)  # detected at first, then not
+
+
+def test_retune_from_logged_samples_is_exact() -> None:
+    # Deterministic from the samples alone: two independent runs agree on every field.
+    samples = _noisy_series()
+    assert run(samples) == run(list(samples))
+
+
+def test_config_validation_of_rule_fields() -> None:
+    from VidFlow.realtime.config import ConfigError
+
+    CFG.replace(window_weight=0.0, rise_db=0.0).validate()
+    with pytest.raises(ConfigError):
+        CFG.replace(window_weight=1.5).validate()
+    with pytest.raises(ConfigError):
+        CFG.replace(window_weight=-0.1).validate()
+    with pytest.raises(ConfigError):
+        CFG.replace(rise_db=float("nan")).validate()
+    # Windows found in the warm-up are returned when it ends: retention must still hold their start.
+    with pytest.raises(ConfigError, match="warmup_s"):
+        CFG.replace(warmup_s=200.0).validate()
+    CFG.replace(warmup_s=200.0, retention_s=210.0).validate()
+    # A config logged before these fields existed still loads, with the defaults.
+    old = {k: v for k, v in CFG.to_dict().items() if k not in ("rise_db", "window_weight")}
+    assert RealtimeConfig.from_dict(old) == CFG

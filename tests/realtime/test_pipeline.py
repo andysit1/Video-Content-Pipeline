@@ -339,3 +339,109 @@ def test_supervisor_add_and_remove_channel_while_running(
         sup.stop()
         runner.join(30)
     assert not runner.is_alive()
+
+
+# ------------------------------------------------------------------ queue sizing and schedule
+
+
+def test_effective_queue_size_scales_with_channels() -> None:
+    from VidFlow.realtime.pipeline import effective_queue_size
+
+    cfg = RealtimeConfig()  # queue_size 64, queue_per_channel 4
+    assert effective_queue_size(cfg, 1) == 64  # floor: one channel behaves as before
+    assert effective_queue_size(cfg, 16) == 64
+    assert effective_queue_size(cfg, 32) == 128
+    assert effective_queue_size(cfg, 64) == 256
+    assert effective_queue_size(cfg.replace(queue_per_channel=0), 64) == 64
+    assert effective_queue_size(cfg.replace(queue_size=8, queue_per_channel=3), 5) == 15
+
+
+def test_pool_set_queue_size_takes_effect() -> None:
+    gate = threading.Event()
+    pool = WorkerPool(1, 1)
+    try:
+        pool.submit(Job("cut", gate.wait))  # occupies the worker
+        time.sleep(0.05)
+        assert pool.submit(Job("cut", lambda: None))
+        assert not pool.submit(Job("cut", lambda: None))  # bound 1: full
+        pool.set_queue_size(3)
+        assert pool.submit(Job("cut", lambda: None)) and pool.submit(Job("cut", lambda: None))
+        with pytest.raises(ValueError):
+            pool.set_queue_size(0)
+    finally:
+        gate.set()
+        pool.shutdown()
+
+
+def test_supervisor_scales_queue_with_channel_count(synthetic_segments: List[Segment], tmp_path: Path) -> None:
+    cfg = CFG.replace(queue_size=10, queue_per_channel=3)
+    sup = Supervisor(cfg, tmp_path / "out", session="s")
+    try:
+        assert sup.pool.queue_size == 10
+        for i in range(5):
+            sup.add_channel(FakeSource(copy_segments(synthetic_segments[:2], tmp_path / f"c{i}"), f"c{i}"))
+        assert sup.pool.queue_size == 15
+        sup.remove_channel("c4")
+        sup.remove_channel("c3")
+        assert sup.pool.queue_size == 10
+    finally:
+        sup.stop()
+        sup.pool.shutdown()
+    # A shared pool passed in is left alone.
+    pool = WorkerPool(1, 7)
+    sup = Supervisor(cfg, tmp_path / "out2", session="s", pool=pool)
+    for i in range(5):
+        sup.add_channel(FakeSource(copy_segments(synthetic_segments[:2], tmp_path / f"d{i}"), f"d{i}"))
+    assert pool.queue_size == 7
+    sup.stop()
+    pool.shutdown()
+
+
+class _PacedFake(FakeSource):
+    """FakeSource that declares itself paced at 1x with a known playback start."""
+
+    speed = 1.0
+
+    def __init__(self, *a: Any, **kw: Any) -> None:
+        super().__init__(*a, **kw)
+        self.t0: Optional[float] = None
+
+    def __iter__(self):
+        self.t0 = time.monotonic()
+        return super().__iter__()
+
+
+class _UnpacedFake(FakeSource):
+    speed = None
+
+
+def test_pipeline_stamps_due_at_and_reports_behind_schedule(
+    fresh_synthetic_segments: List[Segment], tmp_path: Path
+) -> None:
+    # Released instantly but due at t0 + end: the run is "ahead", behind_schedule is negative.
+    pipe = ChannelPipeline(_PacedFake(fresh_synthetic_segments[:5]), CFG, tmp_path / "out", session="s",
+                           detect_only=True)
+    res = pipe.run()
+    segs = _events(pipe, "segment")
+    assert all(e["due_at"] is not None for e in segs)
+    t0 = pipe.source.t0
+    for e in segs:
+        assert e["due_at"] == pytest.approx(t0 + e["start"] + e["duration"])
+    lat = res.latency
+    assert lat["behind_schedule"]["count"] == 5 and lat["behind_schedule"]["max"] < 0
+
+
+def test_pipeline_unpaced_source_has_no_schedule(fresh_synthetic_segments: List[Segment], tmp_path: Path) -> None:
+    pipe = ChannelPipeline(_UnpacedFake(fresh_synthetic_segments[:3]), CFG, tmp_path / "out", session="s",
+                           detect_only=True)
+    res = pipe.run()
+    assert all(e["due_at"] is None for e in _events(pipe, "segment"))
+    assert res.latency["behind_schedule"]["count"] == 0
+
+
+def test_supervisor_playing_and_finished(synthetic_segments: List[Segment], tmp_path: Path) -> None:
+    sup = Supervisor(CFG, tmp_path / "out", session="s", detect_only=True)
+    sup.add_channel(FakeSource(copy_segments(synthetic_segments[:2], tmp_path / "a"), "a"))
+    assert sup.playing() == [] and sup.finished() == []
+    sup.run()
+    assert sup.playing() == ["a"] and sup.finished() == ["a"]

@@ -62,7 +62,7 @@ from .clip_writer import ClipWriter, sidecar_path, update_sidecar
 from .config import RealtimeConfig
 from .scoring.visual import VisualScorer
 from .segmenter import LoudnessStats, OnlineSegmenter
-from .session import SessionLog
+from .session import ScheduleClock, SessionLog
 from .types import Clip, LoudnessSample, Segment, Source, Window
 
 __all__ = [
@@ -74,6 +74,7 @@ __all__ = [
     "ChannelResult",
     "SourceFactory",
     "default_session_name",
+    "effective_queue_size",
     "RANK_WEIGHTS",
 ]
 
@@ -91,6 +92,18 @@ RANK_WEIGHTS: Mapping[str, float] = {"audio_prominence": 1.0, "visual_mean": 1.0
 def default_session_name() -> str:
     """A session name from the local time, e.g. ``20261115-142501``."""
     return time.strftime("%Y%m%d-%H%M%S")
+
+
+def effective_queue_size(config: RealtimeConfig, channels: int) -> int:
+    """Job-queue bound of a pool shared by ``channels`` channels.
+
+    ``max(queue_size, queue_per_channel x channels)``: ``queue_size`` is the
+    floor (a single channel gets exactly ``queue_size``), and each channel adds
+    room for ``queue_per_channel`` jobs, i.e. two windows' cut + score jobs at
+    the default of 4, so a burst that closes a window on every channel at once
+    does not drop scoring.
+    """
+    return max(int(config.queue_size), int(config.queue_per_channel) * max(1, int(channels)))
 
 
 # =========================================================================== detector
@@ -207,6 +220,14 @@ class WorkerPool:
             t.start()
 
     # ---------------------------------------------------------------- public
+
+    def set_queue_size(self, queue_size: int) -> None:
+        """Change the queue bound. Shrinking drops nothing already queued; it only
+        makes later submissions find the queue full sooner."""
+        if int(queue_size) != queue_size or queue_size < 1:
+            raise ValueError(f"queue_size must be an integer >= 1, got {queue_size!r}")
+        with self._cond:
+            self.queue_size = int(queue_size)
 
     @property
     def pending(self) -> int:
@@ -503,6 +524,12 @@ class ChannelPipeline:
         self.pool = pool if pool is not None else WorkerPool(self.config.workers, self.config.queue_size)
         self.log = SessionLog(self.session_dir)
         self.ranker = RankTracker()
+        # Broadcast schedule for the ``behind_schedule`` metric; a source that
+        # says it is unpaced (``speed`` None) has none. Live sources run at 1x.
+        speed = getattr(self.source, "speed", 1.0)
+        if speed is not None and not (isinstance(speed, (int, float)) and speed > 0):
+            speed = 1.0
+        self.schedule = ScheduleClock(speed)
 
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -600,7 +627,13 @@ class ChannelPipeline:
         for w in windows:
             self._window_closed(w)
         self._submit_covered(final=False)
-        self.log.log_segment(segment)
+        due = self.schedule.due_at(
+            segment.end,
+            segment.arrived_at,
+            discontinuity=segment.discontinuity,
+            t0=getattr(self.source, "t0", None),
+        )
+        self.log.log_segment(segment, due_at=due)
 
     def _window_closed(self, window: Window) -> None:
         self.log.log_window(window)

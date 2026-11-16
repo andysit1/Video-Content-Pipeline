@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -11,9 +12,12 @@ from click.testing import CliRunner
 from VidFlow.realtime.cli import main
 from VidFlow.realtime.config import RealtimeConfig
 from VidFlow.realtime.eval import (
+    RULE_FIELDS,
     EvalReport,
     RefWindow,
     evaluate,
+    format_eval,
+    format_retune,
     load_truth,
     match_windows,
     merge_intervals,
@@ -24,10 +28,11 @@ from VidFlow.realtime.eval import (
 from VidFlow.realtime.pipeline import ChannelPipeline
 from VidFlow.realtime.session import read_events
 from VidFlow.realtime.sources.replay import ReplaySource
-from VidFlow.realtime.testing import SYNTHETIC_BURSTS
+from VidFlow.realtime.testing import SYNTHETIC_BURSTS, detection_scenes, make_scene_video, write_truth
 from VidFlow.realtime.types import Window, make_window_id
 
 CFG = RealtimeConfig(warmup_s=5.0)
+DEFAULTS = RealtimeConfig()  # warm-up no longer hides the fixture's first burst
 
 
 def _w(start: float, end: float, channel: str = "c") -> Window:
@@ -36,8 +41,8 @@ def _w(start: float, end: float, channel: str = "c") -> Window:
 
 @pytest.fixture(scope="module")
 def fixture_eval(synthetic_video: Path, tmp_path_factory: pytest.TempPathFactory) -> EvalReport:
-    """One detect-only run over the fixture, its log kept for the retune tests."""
-    return evaluate(synthetic_video, CFG, out_dir=tmp_path_factory.mktemp("eval"), session="s")
+    """One detect-only run over the fixture with default settings, its log kept for the retune tests."""
+    return evaluate(synthetic_video, DEFAULTS, out_dir=tmp_path_factory.mktemp("eval"), session="s")
 
 
 # ------------------------------------------------------------------ reference and matching
@@ -94,6 +99,7 @@ def test_eval_on_fixture_is_perfect(fixture_eval: EvalReport) -> None:
     assert r.precision == 1.0 and r.recall == 1.0
     d = r.to_dict()
     assert d["mean_abs_start_error"] <= 0.15 and d["mean_abs_end_error"] <= 0.15
+    assert all(abs(m.start_error) <= 0.15 and abs(m.end_error) <= 0.15 for m in r.matches)
     assert json.loads(json.dumps(d))["matched"] == 2
     # detect only: logged, nothing cut
     assert r.session_dir is not None and not list((r.session_dir / "clips").glob("*.mp4"))
@@ -104,12 +110,25 @@ def test_eval_cli_with_truth_file(synthetic_video: Path, tmp_path: Path) -> None
     truth = tmp_path / "truth.txt"
     truth.write_text("10 16\n40 46\n25 28\n")  # one window the detector cannot find
     r = CliRunner().invoke(
-        main, ["eval", str(synthetic_video), "--truth", str(truth), "--set", "warmup_s=5", "--json", "-"]
+        main, ["eval", str(synthetic_video), "--truth", str(truth), "--json", "-"]
     )
     assert r.exit_code == 0, r.output
     d = json.loads(r.output)
     assert d["precision"] == 1.0 and d["recall"] == pytest.approx(2 / 3)
     assert d["reference"]["method"] == "truth"
+
+
+def test_eval_on_a_loud_bed_scene(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Through the real pipeline (AAC, 2 s segments): a -20 dBFS noise bed with louder
+    peaks, one of them inside the warm-up, default settings."""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg must be on PATH")
+    scene = detection_scenes()["loud_bed"]
+    d = tmp_path_factory.mktemp("scene")
+    video = make_scene_video(d / "loud_bed.mp4", scene)
+    r = evaluate(video, DEFAULTS, truth=write_truth(d / "truth.json", scene.truth))
+    assert r.precision == 1.0 and r.recall == 1.0, format_eval(r)
+    assert all(abs(m.start_error) <= 0.2 and abs(m.end_error) <= 0.2 for m in r.matches), format_eval(r)
 
 
 # ------------------------------------------------------------------ retune
@@ -141,6 +160,24 @@ def test_retune_reproduces_a_run_with_a_discontinuity(synthetic_video: Path, tmp
     res = retune(pipe.session_dir)
     assert res.discontinuities == 1 and res.identical
     assert len(res.windows) == 3 and res.windows[0].forced
+
+
+def test_retune_of_a_log_from_the_older_rule(fixture_eval: EvalReport, tmp_path: Path) -> None:
+    """A log whose config predates rise_db/window_weight still loads; the result says the rule changed."""
+    lines = (fixture_eval.session_dir / "events.jsonl").read_text().splitlines()
+    out = []
+    for line in lines:
+        e = json.loads(line)
+        if e.get("type") == "session_start":
+            for k in RULE_FIELDS:
+                e["config"].pop(k, None)
+        out.append(json.dumps(e))
+    old = tmp_path / "events.jsonl"
+    old.write_text("\n".join(out) + "\n")
+    res = retune(old)
+    assert res.changed == {"rise_db": (None, DEFAULTS.rise_db), "window_weight": (None, DEFAULTS.window_weight)}
+    assert len(res.windows) == 2
+    assert any("predates the current detection rule" in line for line in format_retune(res))
 
 
 def test_retune_cli(fixture_eval: EvalReport) -> None:

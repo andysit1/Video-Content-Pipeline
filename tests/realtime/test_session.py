@@ -14,7 +14,9 @@ import pytest
 from VidFlow.realtime.config import RealtimeConfig
 from VidFlow.realtime.session import (
     EVENTS_FILE,
+    LATENCY_METRICS,
     LatencyTracker,
+    ScheduleClock,
     SessionLog,
     read_config,
     read_events,
@@ -273,7 +275,7 @@ def test_helper_event_fields(tmp_path: Path) -> None:
     assert e["error"] == "boom" and e["error_type"] == "RuntimeError"
     assert se == end and se["t_media"] == 16.0 and se["clips"] == 1
     assert se["counts"] == {"segment": 1, "clip": 1, "score": 1, "dropped": 1, "error": 1}
-    assert set(se["latency"]) == {"detect_latency", "cut_latency", "total_latency", "ingest_lag"}
+    assert set(se["latency"]) == set(LATENCY_METRICS)
 
 
 # ------------------------------------------------------------------ latency
@@ -351,3 +353,76 @@ def test_latency_tracker_empty_and_missing_inputs() -> None:
     assert tr.per_clip()[0].detect_latency is None
     assert tr.per_segment()[0].ingest_lag is None
     assert tr.summary()["ingest_lag"]["count"] == 0
+
+
+# ------------------------------------------------------------------ behind schedule
+
+
+def test_schedule_clock_uses_t0_and_most_punctual_arrival() -> None:
+    clock = ScheduleClock(1.0)
+    # t0 known (a replay): due = t0 + end, even if the segment was pulled late.
+    assert clock.due_at(2.0, 103.0, t0=100.0) == pytest.approx(102.0)
+    assert clock.due_at(4.0, 109.0, t0=100.0) == pytest.approx(104.0)
+    assert clock.due_at(6.0, 105.0, t0=100.0) == pytest.approx(106.0)  # t0 is exact: early is early
+    # After a discontinuity t0 no longer holds (dropped content); re-anchor, then most punctual wins.
+    assert clock.due_at(8.0, 120.0, discontinuity=True, t0=100.0) == pytest.approx(120.0)
+    assert clock.due_at(10.0, 121.0, t0=100.0) == pytest.approx(121.0)
+    assert clock.due_at(12.0, 125.0, t0=100.0) == pytest.approx(123.0)
+    # No t0: the first arrival anchors the schedule, a more punctual one moves it earlier.
+    clock = ScheduleClock(1.0)
+    assert clock.due_at(2.0, 52.5) == pytest.approx(52.5)
+    assert clock.due_at(4.0, 54.0) == pytest.approx(54.0)  # anchor 50.0 now
+    assert clock.due_at(6.0, 60.0) == pytest.approx(56.0)  # pulled 4 s late
+    # A discontinuity re-anchors (lost content: wall time ran on, media time did not).
+    assert clock.due_at(8.0, 80.0, discontinuity=True) == pytest.approx(80.0)
+    assert clock.due_at(10.0, 82.0) == pytest.approx(82.0)
+
+
+def test_schedule_clock_speed_and_unpaced() -> None:
+    clock = ScheduleClock(4.0)
+    assert clock.due_at(8.0, 12.5, t0=10.0) == pytest.approx(12.0)
+    assert ScheduleClock(None).due_at(2.0, 1.0) is None
+    assert ScheduleClock(1.0).due_at(2.0, None) is None  # no arrival stamp: unknown
+    with pytest.raises(ValueError):
+        ScheduleClock(0.0)
+
+
+def test_latency_tracker_behind_schedule_and_time_to_clip(tmp_path: Path) -> None:
+    """A loop that falls behind: ingest_lag stays 0 (pull source), behind_schedule grows."""
+    clock = FakeClock(0.0)
+    sched = ScheduleClock(1.0)
+    segs = make_segments("ch", [2.0] * 5)
+    w = _window(5.0, 7.5)
+    with SessionLog(tmp_path, clock=clock) as slog:
+        for seg in segs:
+            # Released at 100 + end, but pulled 1 s later each segment; processed instantly.
+            arrived = 100.0 + seg.end + seg.seq
+            seg = seg.__class__(**{**seg.__dict__, "arrived_at": arrived})
+            clock.t = arrived
+            due = sched.due_at(seg.end, arrived, t0=100.0)
+            slog.log_segment(seg, due_at=due)
+        clock.t = 112.0
+        slog.log_window(w)
+        clock.t = 112.5
+        slog.log_clip(Clip(w, Path("a.mp4"), 0, 0, 0, 0))
+        slog.log_session_end()
+    rows = slog.latency.per_segment()
+    assert [r.ingest_lag for r in rows] == pytest.approx([0, 0, 0, 0, 0])
+    assert [r.behind_schedule for r in rows] == pytest.approx([0, 1, 2, 3, 4])
+    s = slog.latency.summary()
+    assert set(s) == set(LATENCY_METRICS)
+    assert s["behind_schedule"]["max"] == pytest.approx(4.0)
+    # Window end 7.5 lies in segment 3 (6-8], due 108, clip done 112.5.
+    (clip,) = slog.latency.per_clip()
+    assert clip.time_to_clip == pytest.approx(4.5)
+    assert clip.total_latency == pytest.approx(112.5 - 111.0)
+    assert LatencyTracker.from_log(tmp_path).summary() == s
+
+
+def test_latency_tracker_without_due_at_reports_no_schedule() -> None:
+    tr = LatencyTracker()
+    tr.feed({"type": "segment", "t_wall": 3.0, "seq": 0, "start": 0.0, "duration": 2.0, "arrived_at": 2.0})
+    assert tr.per_segment()[0].behind_schedule is None
+    s = tr.summary()
+    assert s["behind_schedule"]["count"] == 0 and s["time_to_clip"]["count"] == 0
+    assert s["ingest_lag"]["count"] == 1

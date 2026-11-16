@@ -18,10 +18,12 @@ Three tools, each a plain function here and a ``vidflow-live`` subcommand in
     exactly.
 
 :func:`run_bench`
-    N simulated channels (``ReplaySource`` at 1x) under one
-    :class:`~VidFlow.realtime.supervisor.Supervisor` for M seconds; reports
-    process CPU, memory, ingest lag, how far behind the broadcast schedule
-    ingest fell, latency percentiles and clips per minute.
+    N simulated channels (``ReplaySource`` at 1x, start times staggered by
+    default) under one :class:`~VidFlow.realtime.supervisor.Supervisor`, or
+    sharded over worker processes (:mod:`~VidFlow.realtime.shard`), for M
+    seconds of stream each; reports CPU (all processes), memory, ingest lag,
+    how far behind the broadcast schedule ingest fell, latency percentiles
+    (including time-to-clip from the schedule) and clips per minute.
 
 The offline reference
 ---------------------
@@ -51,6 +53,15 @@ PyAV and NumPy, with two deliberate corrections:
 Levels are tracked per 10 ms block (the block's sample peak over all
 channels), so boundaries are exact to 10 ms and memory stays at about
 100 floats per second of audio, whatever the file's length.
+
+The reference deliberately does *not* follow the online rule (background
+percentile + ``rise_db``, window down-weighting, hindsight warm-up). It is an
+independent yardstick: what the batch pipeline would have clipped from the
+whole file with one global threshold. Agreement with it on files whose loud
+moments sit well above a steady background is a meaningful check; on streams
+whose loudness changes over time (a loud stretch, a noisy bed) one global
+threshold is itself wrong, and the two are expected to differ. Use a truth file
+(``truth=``) to score those.
 """
 
 from __future__ import annotations
@@ -74,6 +85,7 @@ from .config import RealtimeConfig
 from .pipeline import ChannelPipeline, ChannelResult
 from .segmenter import OnlineSegmenter
 from .session import (
+    LATENCY_METRICS,
     LatencyTracker,
     read_config,
     read_events,
@@ -99,8 +111,10 @@ __all__ = [
     "format_retune",
     "BenchReport",
     "run_bench",
+    "stagger_delays",
     "format_bench",
     "RETUNE_FIXED",
+    "RULE_FIELDS",
 ]
 
 log = logging.getLogger(__name__)
@@ -555,6 +569,10 @@ def format_eval(report: EvalReport) -> List[str]:
 #: Settings that change the logged samples themselves, so cannot be re-tuned without the video.
 RETUNE_FIXED = ("hop_s",)
 
+#: Settings of the current detection rule. A logged config without them was
+#: detected by the older rule, so its windows are not expected to reproduce.
+RULE_FIELDS = ("rise_db", "window_weight")
+
 
 @dataclass
 class RetuneResult:
@@ -621,9 +639,10 @@ def retune(events: PathLike, config: Optional[RealtimeConfig] = None, **changes:
         logged_value = getattr(logged_cfg, name) if logged_cfg is not None else ref_hop
         if logged_value is not None and getattr(cfg, name) != logged_value:
             raise ValueError(f"{name} cannot be re-tuned from a log (logged {logged_value}); re-run on the video")
-    # The buffer is not used here; do not let its retention rule block a re-tune.
-    if cfg.retention_s < cfg.min_retention_s():
-        cfg = cfg.replace(retention_s=cfg.min_retention_s())
+    # The buffer is not used here; do not let its retention rules block a re-tune.
+    needed = max(cfg.min_retention_s(), cfg.warmup_s + cfg.pre_pad_s + 2.0 * cfg.segment_time_s)
+    if cfg.retention_s < needed:
+        cfg = cfg.replace(retention_s=needed)
     cfg.validate()
 
     seg = OnlineSegmenter(channel, cfg)
@@ -643,6 +662,11 @@ def retune(events: PathLike, config: Optional[RealtimeConfig] = None, **changes:
     changed = {
         k: (reference.get(k), v) for k, v in cfg.to_dict().items() if k in reference and reference[k] != v
     }
+    raw = starts[0].get("config") if starts else None
+    if isinstance(raw, dict):
+        # A log written before these settings existed was detected with the older
+        # rule (rolling p90, no window down-weighting, warm-up skipped).
+        changed.update({k: (None, getattr(cfg, k)) for k in RULE_FIELDS if k not in raw})
     changed.pop("retention_s", None)
     return RetuneResult(path, cfg, windows, logged, changed, samples=n, discontinuities=disc)
 
@@ -669,6 +693,8 @@ def format_retune(result: RetuneResult) -> List[str]:
         lines.append("changed: " + ", ".join(f"{k} {a} -> {b}" for k, (a, b) in sorted(result.changed.items())))
     else:
         lines.append("changed: nothing (logged settings)")
+    if any(result.changed.get(k, (0,))[0] is None for k in RULE_FIELDS):
+        lines.append("note: this log predates the current detection rule; its windows will not reproduce")
     lines.append(f"{len(result.windows)} windows:")
     lines.extend(_window_rows(result.windows))
     if result.identical:
@@ -730,8 +756,8 @@ class BenchReport:
     seconds: float
     speed: float
     cpu_count: int
-    wall_s: float  # run() start to all channels finished (includes splitting and draining)
-    steady_wall_s: float  # every channel playing, until the run ended (excludes the up-front split)
+    wall_s: float  # run() start to all channels finished (includes splitting, stagger and draining)
+    steady_wall_s: float  # every channel playing, until the first channel finished (full load only)
     cpu_s: float  # process + children over wall_s
     steady_cpu_s: float  # process + children over steady_wall_s
     cpu_children_s: float
@@ -750,6 +776,11 @@ class BenchReport:
     segment_time_s: float = 2.0
     out_dir: Optional[str] = None
     per_channel: List[Dict[str, Any]] = field(default_factory=list)
+    processes: int = 1  # worker processes (1 = the threaded Supervisor in this process)
+    stagger_s: float = 0.0  # channel start delays spread over this many seconds (0 = synchronized)
+    seed: int = 0  # seed of the start-delay order
+    queue_size: int = 0  # effective job-queue bound per process
+    shards: List[List[str]] = field(default_factory=list)
 
     @property
     def cores_used(self) -> float:
@@ -782,22 +813,25 @@ class BenchReport:
         return d
 
 
-def _behind_schedule(session_dir: Path, t0: Optional[float], speed: float) -> List[float]:
-    """Per segment: when ingest finished with it, minus when the broadcast would have finished it.
+#: Default spread of the channels' start delays: ``min(BENCH_STAGGER_MAX_S, seconds / 3)``.
+BENCH_STAGGER_MAX_S = 20.0
 
-    ``ingest_lag`` cannot show a backlog: a pull-based source stamps
-    ``arrived_at`` when the ingest loop asks for the segment, so a loop that
-    falls behind sees every segment "arrive" just as it is ready for it. This
-    measures against the source's own schedule (``t0 + end / speed``) instead.
+
+def stagger_delays(channels: int, span_s: float, seed: int = 0) -> List[float]:
+    """Start delays for ``channels`` channels, evenly spread over ``[0, span_s)``, in seeded random order.
+
+    ``span_s <= 0`` gives all zeros (the synchronized worst case).
     """
-    if t0 is None:
+    if channels < 1:
         return []
-    out: List[float] = []
-    for e in read_events(session_dir, "segment"):
-        end = float(e["start"]) + float(e["duration"])
-        if e.get("t_wall") is not None:
-            out.append(float(e["t_wall"]) - (t0 + end / speed))
-    return out
+    if not span_s > 0:
+        return [0.0] * channels
+    import random
+
+    step = float(span_s) / channels
+    delays = [round(i * step, 6) for i in range(channels)]
+    random.Random(seed).shuffle(delays)
+    return delays
 
 
 def run_bench(
@@ -810,19 +844,49 @@ def run_bench(
     speed: float = 1.0,
     session: str = "bench",
     transcode: bool = False,
+    processes: Optional[int] = None,
+    stagger_s: Optional[float] = None,
+    seed: int = 0,
 ) -> BenchReport:
     """Follow ``channels`` simulated channels of ``video`` for ``seconds`` and measure.
 
     Every channel replays the same file at ``speed`` (1.0 = real time) with
-    its own buffer, detector and log, sharing one worker pool, as in
-    production. After ``seconds`` the channels are stopped
-    (``Supervisor.run(timeout=seconds)``; pending clips are still cut). With ``out_dir=None`` the output goes to a temporary
-    directory that is removed afterwards.
+    its own buffer, detector and log, and follows exactly ``seconds * speed``
+    seconds of stream from the start of the file, then ends. Channels share
+    one worker pool per process, as in production.
 
-    CPU is ``os.times()`` for this process plus its finished children
-    (FFmpeg); the steady-state figure starts once every channel is playing,
-    so the up-front file split is excluded, and runs to the end of the drain.
+    ``processes``  ``None``/0: one process per ``config.channels_per_process``
+                   channels (:func:`~VidFlow.realtime.shard.make_supervisor`);
+                   1: the threaded ``Supervisor`` alone; N: N worker processes.
+    ``stagger_s``  channel ``i`` starts after a delay; the delays are spread
+                   evenly over ``stagger_s`` wall seconds in an order shuffled
+                   with ``seed`` (:func:`stagger_delays`). ``None``:
+                   ``min(20, seconds / 3)``. ``0``: every channel starts at
+                   once, so every clip of every channel is requested at the
+                   same instant (the synchronized worst case). Staggering is
+                   the default because real channels' moments are
+                   uncorrelated; the synchronized run measures the burst
+                   capacity of the queue instead of sustained capacity. Each
+                   channel still sees the same content, so clip counts do not
+                   depend on the stagger.
+
+    With ``out_dir=None`` the output goes to a temporary directory that is
+    removed afterwards. A safety timeout stops everything at
+    ``2 x seconds + max delay + 60`` wall seconds.
+
+    CPU is this process plus its children (worker processes and FFmpeg). The
+    steady-state figures cover the time every channel was playing at once:
+    from the moment the last channel started (after its file split) until the
+    first channel finished. Mid-run readings of live worker processes come
+    from ``/proc`` (:func:`~VidFlow.realtime.shard.process_tree_cpu`).
+
+    "Behind schedule" and ``time_to_clip`` come from the channels' own
+    :class:`~VidFlow.realtime.session.LatencyTracker` (the ``due_at`` the
+    pipeline stamps on each segment from the source's ``t0``).
     """
+    from .pipeline import effective_queue_size
+    from .shard import ReplayFactory, ShardedSupervisor, make_supervisor
+
     if channels < 1:
         raise ValueError("channels must be >= 1")
     if not seconds > 0:
@@ -835,49 +899,52 @@ def run_bench(
     if out_dir is None:
         tmp = tempfile.mkdtemp(prefix="vidflow-bench-")
         out_dir = tmp
+    if stagger_s is None:
+        stagger_s = min(BENCH_STAGGER_MAX_S, seconds / 3.0)
+    stagger_s = max(0.0, float(stagger_s))
     names = [f"ch{i:02d}" for i in range(channels)]
-    sources: Dict[str, ReplaySource] = {}
-    lock = threading.Lock()
-
-    def factory(name: str):
-        def make(work_dir: Path) -> ReplaySource:
-            src = ReplaySource(video, name, work_dir, speed=speed, segment_time=cfg.segment_time_s, transcode=transcode)
-            with lock:
-                sources[name] = src
-            return src
-
-        return make
+    delays = stagger_delays(channels, stagger_s, seed)
+    media_limit = seconds * speed
 
     try:
-        sup = Supervisor(cfg, out_dir, session=session)
-        for name in names:
-            sup.add_channel(factory(name), channel=name)
+        sup = make_supervisor(cfg, out_dir, channels=channels, processes=processes, session=session)
+        sharded = isinstance(sup, ShardedSupervisor)
+        cpu_now = sup.cpu_seconds if sharded else (lambda: sum(_cpu_times()))
+        for name, delay in zip(names, delays):
+            factory = ReplayFactory(
+                video, name, speed=speed, segment_time=cfg.segment_time_s, transcode=transcode,
+                start_delay_s=delay, media_limit_s=media_limit,
+            )
+            sup.add_channel(factory, channel=name)
 
-        # Steady state: from the moment every source has started playing until stop.
+        # Steady state: every channel playing, until the first one finishes.
         marks: Dict[str, Tuple[float, float]] = {}
         stop_watch = threading.Event()
 
         def watch() -> None:
             while not stop_watch.wait(0.05):
-                with lock:
-                    started = len(sources) == channels and all(s.t0 is not None for s in sources.values())
-                if started and "steady" not in marks:
-                    marks["steady"] = (time.monotonic(), sum(_cpu_times()))
+                if "steady" not in marks and len(sup.playing()) == channels:
+                    marks["steady"] = (time.monotonic(), cpu_now())
+                    log.info("bench: every channel playing after %.1f s", marks["steady"][0] - wall0)
+                if "steady" in marks and sup.finished():
+                    marks["end"] = (time.monotonic(), cpu_now())
+                    log.info("bench: first channel finished after %.1f s", marks["end"][0] - wall0)
                     return
 
-        watcher = threading.Thread(target=watch, name="bench-watch", daemon=True)
-        watcher.start()
         wall0 = time.monotonic()
         cpu0, kids0 = _cpu_times()
-        results: Dict[str, ChannelResult] = sup.run(timeout=seconds)
+        watcher = threading.Thread(target=watch, name="bench-watch", daemon=True)
+        watcher.start()
+        results: Dict[str, ChannelResult] = sup.run(timeout=2 * seconds + max(delays) + 60.0)
         stop_watch.set()
+        watcher.join(1.0)
         wall1 = time.monotonic()
         cpu1, kids1 = _cpu_times()
-        # Up to the end of the run, so cuts of windows closed just before the stop count.
-        steady = marks.get("steady")
-        if steady is not None and wall1 > steady[0]:
-            steady_wall = wall1 - steady[0]
-            steady_cpu = (cpu1 + kids1) - steady[1]
+        shards = list(sup.shards) if sharded else [list(names)]
+        steady, end = marks.get("steady"), marks.get("end", (wall1, cpu1 + kids1))
+        if steady is not None and end[0] > steady[0]:
+            steady_wall = end[0] - steady[0]
+            steady_cpu = end[1] - steady[1]
         else:
             steady_wall = wall1 - wall0
             steady_cpu = (cpu1 + kids1) - (cpu0 + kids0)
@@ -885,25 +952,20 @@ def run_bench(
         rss_end = _rss_mb()
         rss_end = None if rss_end is None else round(rss_end, 1)
 
-        clip_lat: Dict[str, List[float]] = {"detect_latency": [], "cut_latency": [], "total_latency": [], "ingest_lag": []}
-        behind: List[float] = []
+        pooled: Dict[str, List[float]] = {}
         per_channel: List[Dict[str, Any]] = []
         media_s = 0.0
         for name in names:
-            r = results[name]
-            tracker = LatencyTracker.from_log(r.session_dir)
-            for c in tracker.per_clip():
-                if c.detect_latency is not None:
-                    clip_lat["detect_latency"].append(c.detect_latency)
-                if c.cut_latency is not None:
-                    clip_lat["cut_latency"].append(c.cut_latency)
-                if c.total_latency is not None:
-                    clip_lat["total_latency"].append(c.total_latency)
-            clip_lat["ingest_lag"].extend(s.ingest_lag for s in tracker.per_segment() if s.ingest_lag is not None)
-            src = sources.get(name)
-            b = _behind_schedule(r.session_dir, src.t0 if src is not None else None, speed)
-            behind.extend(b)
-            m = sum(float(e["duration"]) for e in read_events(r.session_dir, "segment"))
+            r = results.get(name) or ChannelResult(
+                channel=name, session=session, session_dir=Path(out_dir) / name / session, error="no result"
+            )
+            results[name] = r
+            log_file = r.session_dir / "events.jsonl"
+            vals = LatencyTracker.from_log(log_file).values() if log_file.is_file() else {}
+            for k, v in vals.items():
+                pooled.setdefault(k, []).extend(v)
+            b = vals.get("behind_schedule", [])
+            m = sum(float(e["duration"]) for e in read_events(log_file, "segment")) if log_file.is_file() else 0.0
             media_s += m
             per_channel.append(
                 {
@@ -945,11 +1007,16 @@ def run_bench(
         dropped=sum(r.dropped for r in results.values()),
         errors=sum(r.errors for r in results.values()),
         failed=[n for n, r in results.items() if not r.ok],
-        latency={k: _pstats(v) for k, v in clip_lat.items()},
-        behind=_pstats(behind),
+        latency={k: _pstats(pooled.get(k, [])) for k in LATENCY_METRICS if k != "behind_schedule"},
+        behind=_pstats(pooled.get("behind_schedule", [])),
         segment_time_s=cfg.segment_time_s,
         out_dir=None if tmp is not None else str(out_dir),
         per_channel=per_channel,
+        processes=len(shards),
+        stagger_s=stagger_s,
+        seed=seed,
+        queue_size=effective_queue_size(cfg, max(len(s) for s in shards)),
+        shards=shards,
     )
 
 
@@ -958,11 +1025,14 @@ def format_bench(report: BenchReport) -> List[str]:
     lines = [
         f"bench: {r.channels} channel(s) of {Path(r.video).name} at {r.speed:g}x for {r.seconds:g} s "
         f"on {r.cpu_count} cores",
+        f"  run  {r.processes} process(es) ({', '.join(str(len(s)) for s in r.shards) or '-'} channels), "
+        f"job queue {r.queue_size} per process; "
+        + (f"starts staggered over {r.stagger_s:g} s (seed {r.seed})" if r.stagger_s > 0 else "starts synchronized"),
         f"  wall {r.wall_s:.1f} s total, {r.steady_wall_s:.1f} s with every channel playing; "
         f"{r.media_s:.1f} s of stream per channel",
         f"  cpu  {r.cores_used:.2f} cores steady ({r.cpu_percent:.1f}% of machine, "
         f"{r.cores_used / r.channels * 100:.1f}% of a core per channel); "
-        f"{r.cpu_s:.1f} s total incl. {r.cpu_children_s:.1f} s in ffmpeg",
+        f"{r.cpu_s:.1f} s total incl. {r.cpu_children_s:.1f} s in child processes (ffmpeg, workers)",
         f"  mem  peak {_f(r.peak_rss_mb, '.0f')} MB (largest child {_f(r.peak_child_rss_mb, '.0f')} MB)",
         f"  out  {r.windows} windows, {r.clips} clips, {r.scored} scored, {r.dropped} dropped, {r.errors} errors; "
         f"{r.clips_per_minute:.1f} clips per minute ({r.clips_per_minute / r.channels:.2f} per channel)",
@@ -970,7 +1040,7 @@ def format_bench(report: BenchReport) -> List[str]:
     ]
     rows = dict(r.latency)
     rows["behind_schedule"] = r.behind
-    for metric in ("detect_latency", "cut_latency", "total_latency", "ingest_lag", "behind_schedule"):
+    for metric in LATENCY_METRICS:
         s = rows.get(metric) or {}
         lines.append(
             f"    {metric:<16}{int(s.get('count') or 0):>6}"

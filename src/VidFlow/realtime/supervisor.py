@@ -2,7 +2,13 @@
 
 One process, one ingest thread per channel, one shared :class:`WorkerPool`.
 The interface (``add_channel``, ``remove_channel``, ``run``, ``stop``) does not
-expose threads, so it can move to one process per channel later.
+expose threads. Past about 30 channels one process is capped by the
+interpreter lock; :mod:`VidFlow.realtime.shard` then runs one ``Supervisor``
+per group of channels in separate processes behind the same interface.
+
+The pool's job-queue bound follows the channel count
+(:func:`~VidFlow.realtime.pipeline.effective_queue_size`) when the supervisor
+owns its pool.
 
 A failing channel never takes down the supervisor: its pipeline records the
 error in its result and session log, and the other channels carry on.
@@ -20,14 +26,31 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from .config import RealtimeConfig
-from .pipeline import ChannelPipeline, ChannelResult, SourceFactory, WorkerPool, default_session_name
+from .pipeline import (
+    ChannelPipeline,
+    ChannelResult,
+    SourceFactory,
+    WorkerPool,
+    default_session_name,
+    effective_queue_size,
+)
 from .types import Source
 
-__all__ = ["Supervisor"]
+__all__ = ["Supervisor", "is_playing"]
 
 log = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
+
+
+def is_playing(pipe: ChannelPipeline) -> bool:
+    """True once a channel's source has started playing.
+
+    That is when it exposes a playback start (``t0``, e.g. ``ReplaySource``,
+    set after the up-front split) or, for other sources, once the first
+    segment has been ingested.
+    """
+    return getattr(pipe.source, "t0", None) is not None or pipe.result.segments > 0
 
 
 class Supervisor:
@@ -105,6 +128,7 @@ class Supervisor:
                 **opts,
             )
             self._pipelines[name] = pipe
+            self._resize_queue()
             if self._running:
                 pipe.start()
         log.info("added channel %s", name)
@@ -114,6 +138,7 @@ class Supervisor:
         """Stop one channel, wait for it to finish, and return its result."""
         with self._lock:
             pipe = self._pipelines.pop(channel)
+            self._resize_queue()
         pipe.stop()
         if pipe._thread is None:  # never started: nothing to drain
             pipe.run()
@@ -177,3 +202,20 @@ class Supervisor:
     def results(self) -> Dict[str, ChannelResult]:
         with self._lock:
             return {name: p.result for name, p in self._pipelines.items()}
+
+    def playing(self) -> List[str]:
+        """Channels whose source has started playing (see :func:`is_playing`)."""
+        with self._lock:
+            pipes = list(self._pipelines.items())
+        return [name for name, p in pipes if is_playing(p)]
+
+    def finished(self) -> List[str]:
+        """Channels whose pipeline has finished."""
+        with self._lock:
+            pipes = list(self._pipelines.items())
+        return [name for name, p in pipes if p.done]
+
+    def _resize_queue(self) -> None:
+        """Scale the queue bound with the channel count (own pool only). Hold ``_lock``."""
+        if self._own_pool:
+            self.pool.set_queue_size(effective_queue_size(self.config, max(1, len(self._pipelines))))

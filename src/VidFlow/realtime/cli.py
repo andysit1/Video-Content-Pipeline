@@ -3,10 +3,11 @@
 Subcommands::
 
     vidflow-live replay VIDEO [VIDEO ...] [--speed 1|N|max] [--out DIR] [--transcode]
-                        [--session NAME] [--set KEY=VALUE ...] [-v]
+                        [--session NAME] [--set KEY=VALUE ...] [--procs N] [-v]
     vidflow-live eval VIDEO [--truth FILE] [--iou 0.5] [--out DIR] [--set KEY=VALUE ...] [--json FILE|-]
     vidflow-live retune EVENTS.jsonl|SESSION_DIR [--set KEY=VALUE ...] [--json FILE|-]
-    vidflow-live bench VIDEO --channels N --seconds M [--out DIR] [--set KEY=VALUE ...] [--json FILE|-]
+    vidflow-live bench VIDEO --channels N --seconds M [--out DIR] [--procs N] [--stagger S] [--seed K]
+                       [--set KEY=VALUE ...] [--json FILE|-]
 
 ``eval``, ``retune`` and ``bench`` are documented in ``eval.py``.
 
@@ -122,8 +123,10 @@ def _fmt(v: Optional[float]) -> str:
 
 def format_latency(summary: Mapping[str, Mapping[str, Optional[float]]]) -> List[str]:
     """Rows of a small text table of a ``LatencyTracker.summary()``."""
+    from .session import LATENCY_METRICS
+
     lines = [f"    {'metric':<16}{'count':>6}{'p50 s':>9}{'p95 s':>9}{'max s':>9}"]
-    for metric in ("detect_latency", "cut_latency", "total_latency", "ingest_lag"):
+    for metric in LATENCY_METRICS:
         s = summary.get(metric) or {}
         lines.append(
             f"    {metric:<16}{int(s.get('count') or 0):>6}"
@@ -147,6 +150,8 @@ def main() -> None:
 @click.option("--transcode", is_flag=True, help="Re-encode with a keyframe every segment (for files with sparse keyframes).")
 @click.option("--session", default=None, help="Session name (default: local date and time).")
 @click.option("--set", "overrides", multiple=True, metavar="KEY=VALUE", help="Override a RealtimeConfig setting; repeatable.")
+@click.option("--procs", "processes", default=0, show_default=True, type=click.IntRange(min=0),
+              help="Worker processes; 0: one per channels_per_process channels (1 for up to 20).")
 @click.option("-v", "--verbose", count=True, help="-v: info logging, -vv: debug.")
 def replay(
     videos: Tuple[Path, ...],
@@ -155,9 +160,12 @@ def replay(
     transcode: bool,
     session: Optional[str],
     overrides: Tuple[str, ...],
+    processes: int,
     verbose: int,
 ) -> None:
     """Replay each VIDEO as a simulated live channel and clip it as it plays."""
+    from .shard import ReplayFactory, ShardedSupervisor, make_supervisor
+
     level = logging.WARNING if verbose == 0 else logging.INFO if verbose == 1 else logging.DEBUG
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stderr)
 
@@ -182,19 +190,19 @@ def replay(
             f"rank_percentile={extra.get('rank_percentile', 0.0):.0f}"
         )
 
-    sup = Supervisor(config, out_dir, session=session, on_clip=on_clip, on_score=on_score)
     names = channel_names(videos)
+    sup = make_supervisor(
+        config, out_dir, channels=len(names), processes=processes, session=session,
+        on_clip=on_clip, on_score=on_score,
+    )
     for video, name in zip(videos, names):
-
-        def factory(work_dir: Path, video: Path = video, name: str = name) -> ReplaySource:
-            return ReplaySource(
-                video, name, work_dir, speed=rate, segment_time=config.segment_time_s, transcode=transcode
-            )
-
+        # A picklable factory, so channels can be built in worker processes.
+        factory = ReplayFactory(video, name, speed=rate, segment_time=config.segment_time_s, transcode=transcode)
         sup.add_channel(factory, channel=name)
 
     pace = "unpaced" if rate is None else f"{rate:g}x"
-    _echo(f"session {sup.session}: {len(names)} channel(s) at {pace} -> {out_dir}")
+    procs = f" in {sup.processes} processes" if isinstance(sup, ShardedSupervisor) else ""
+    _echo(f"session {sup.session}: {len(names)} channel(s) at {pace}{procs} -> {out_dir}")
     results = sup.run()
     _report(results)
 
@@ -327,11 +335,17 @@ def retune(events: Path, overrides: Tuple[str, ...], json_out: Optional[str], ve
 @click.argument("video", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--channels", "-n", default=4, show_default=True, type=click.IntRange(min=1), help="Simulated channels.")
 @click.option("--seconds", "-m", default=60.0, show_default=True, type=click.FloatRange(min=0, min_open=True),
-              help="How long to follow them (wall seconds).")
+              help="How long each channel plays (wall seconds at --speed 1; seconds x speed of stream).")
 @click.option("--speed", default="1", show_default=True, help="Playback rate of every channel (1 = real time).")
 @click.option("--out", "out_dir", default=None, type=click.Path(file_okay=False, path_type=Path),
               help="Keep clips and logs under <out>/<channel>/bench/. Default: a temporary directory.")
 @click.option("--transcode", is_flag=True, help="Re-encode with a keyframe every segment before replaying.")
+@click.option("--procs", "processes", default=0, show_default=True, type=click.IntRange(min=0),
+              help="Worker processes; 0: one per channels_per_process channels (--set channels_per_process=N).")
+@click.option("--stagger", "stagger_s", default=None, type=click.FloatRange(min=0),
+              help="Spread channel start delays over this many seconds; 0: all start together "
+                   "(synchronized worst case). Default: min(20, seconds / 3).")
+@click.option("--seed", default=0, show_default=True, type=int, help="Seed of the start-delay order.")
 @_set_option
 @_json_option
 @_verbose_option
@@ -342,6 +356,9 @@ def bench(
     speed: str,
     out_dir: Optional[Path],
     transcode: bool,
+    processes: int,
+    stagger_s: Optional[float],
+    seed: int,
     overrides: Tuple[str, ...],
     json_out: Optional[str],
     verbose: int,
@@ -355,10 +372,19 @@ def bench(
         raise click.BadParameter("bench needs a paced speed", param_hint="--speed")
     config = _config_from(overrides)
     _echo(f"following {channels} channel(s) for {seconds:g} s ...")
-    report = run_bench(video, channels, seconds, config, out_dir=out_dir, speed=rate, transcode=transcode)
+    report = run_bench(
+        video, channels, seconds, config, out_dir=out_dir, speed=rate, transcode=transcode,
+        processes=processes, stagger_s=stagger_s, seed=seed,
+    )
     _emit(format_bench(report), report.to_dict(), json_out)
     if report.failed:
         sys.exit(1)
+
+
+# Twitch commands (watch, vod) live in their own module.
+from .cli_twitch import register as _register_twitch  # noqa: E402
+
+_register_twitch(main)
 
 
 if __name__ == "__main__":  # pragma: no cover

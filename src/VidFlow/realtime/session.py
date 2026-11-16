@@ -26,8 +26,10 @@ write any other type too):
                    ``RealtimeConfig.to_dict()`` snapshot), ``t_epoch``, extras.
 ``segment``        ``t_media`` = segment start. ``seq``, ``start``,
                    ``duration``, ``discontinuity``, ``arrived_at`` (``None``
-                   when the source did not stamp it), ``path``. ``t_wall`` is
-                   when the ingest loop finished with the segment.
+                   when the source did not stamp it), ``path``, ``due_at``
+                   (when the broadcast released it, see :class:`ScheduleClock`;
+                   ``None`` or absent when unknown). ``t_wall`` is when the
+                   ingest loop finished with the segment.
 ``audio``          ``t_media`` = segment start. ``seq``, ``discontinuity``,
                    ``hop_s``, ``t`` (list of sample times), ``db`` (list of
                    levels; non-finite levels such as silence's ``-inf`` are
@@ -57,6 +59,19 @@ write any other type too):
 ``cut_latency``     clip ``t_wall`` minus window ``t_wall``.
 ``total_latency``   ``detect_latency + cut_latency``.
 ``ingest_lag``      segment ``t_wall`` minus its ``arrived_at``.
+``behind_schedule`` segment ``t_wall`` minus its ``due_at``: how late the
+                    ingest loop finished with a segment compared with when the
+                    broadcast released it.
+``time_to_clip``    clip ``t_wall`` minus the ``due_at`` of the segment
+                    containing the window's end: ``total_latency`` measured
+                    from the broadcast's schedule instead of from arrival.
+
+Why ``behind_schedule``: ``ingest_lag`` cannot show a backlog with pull-based
+sources (``ReplaySource``, ``HlsSource``), because ``arrived_at`` is stamped
+when the ingest loop asks for the segment; a loop that falls behind sees every
+segment "arrive" just as it is ready for it. ``due_at`` is an optional field of
+the ``segment`` event, stamped by the pipeline with a :class:`ScheduleClock`;
+the two metrics are empty for segments without it (e.g. unpaced replays).
 """
 
 from __future__ import annotations
@@ -105,6 +120,8 @@ __all__ = [
     "LatencyTracker",
     "ClipLatency",
     "SegmentLatency",
+    "ScheduleClock",
+    "LATENCY_METRICS",
 ]
 
 log = logging.getLogger(__name__)
@@ -512,6 +529,70 @@ def window_from_event(event: Mapping[str, Any]) -> Window:
 # --------------------------------------------------------------------------- latency
 
 
+#: The metrics of :meth:`LatencyTracker.summary`, in report order.
+LATENCY_METRICS: Tuple[str, ...] = (
+    "detect_latency",
+    "cut_latency",
+    "total_latency",
+    "time_to_clip",
+    "ingest_lag",
+    "behind_schedule",
+)
+
+
+class ScheduleClock:
+    """Estimates when the broadcast released each segment (its ``due_at``).
+
+    A paced source releases the segment ending at media time ``end`` at wall
+    time ``anchor + end / speed``. The anchor is:
+
+    - the source's own playback start (``t0``, e.g. ``ReplaySource.t0``)
+      when it exposes one, which is exact;
+    - otherwise the smallest ``arrived_at - end / speed`` seen so far: the
+      most punctual segment defines the schedule, so a loop that falls
+      behind (whose segments "arrive" late because it pulls them late) shows
+      up as behind;
+    - reset to ``arrived_at - end / speed`` on a discontinuity, because media
+      time stays contiguous over lost content while wall time does not; from
+      then on the smallest-arrival rule applies even if ``t0`` is known.
+
+    Without ``t0`` the first segments are assumed to arrive on time. A source
+    whose clock drifts from the wall clock, or that stalls without flagging a
+    discontinuity, also shows up as behind. ``speed=None`` (unpaced) disables
+    the clock (:meth:`due_at` returns ``None``). Not thread-safe (one per
+    ingest loop).
+    """
+
+    def __init__(self, speed: Optional[float] = 1.0) -> None:
+        if speed is not None and not speed > 0:
+            raise ValueError(f"speed must be > 0 or None, got {speed!r}")
+        self.speed = None if speed is None else float(speed)
+        self.anchor: Optional[float] = None
+        self._use_t0 = True  # until the first discontinuity
+
+    def due_at(
+        self,
+        end: float,
+        arrived_at: Optional[float],
+        *,
+        discontinuity: bool = False,
+        t0: Optional[float] = None,
+    ) -> Optional[float]:
+        """The ``due_at`` of a segment ending at media time ``end`` (``None`` if unknown)."""
+        if self.speed is None or not arrived_at:
+            return None
+        offset = end / self.speed
+        candidate = float(arrived_at) - offset
+        if discontinuity and self.anchor is not None:
+            self.anchor = candidate
+            self._use_t0 = False
+        elif t0 is not None and self._use_t0:
+            self.anchor = float(t0)
+        else:
+            self.anchor = candidate if self.anchor is None else min(self.anchor, candidate)
+        return self.anchor + offset
+
+
 @dataclass(frozen=True)
 class ClipLatency:
     """Latency of one window/clip, in seconds. ``None`` where an input is missing."""
@@ -520,6 +601,7 @@ class ClipLatency:
     window_end: float
     detect_latency: Optional[float]
     cut_latency: Optional[float]
+    time_to_clip: Optional[float] = None  # clip done minus due_at of the segment holding the window end
 
     @property
     def total_latency(self) -> Optional[float]:
@@ -532,6 +614,7 @@ class ClipLatency:
 class SegmentLatency:
     seq: int
     ingest_lag: Optional[float]
+    behind_schedule: Optional[float] = None  # t_wall minus due_at
 
 
 def _stats(values: Sequence[float]) -> Dict[str, Optional[float]]:
@@ -563,8 +646,8 @@ class LatencyTracker:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        # seq -> (start, end, arrived_at, t_wall)
-        self._segments: Dict[int, Tuple[float, float, Optional[float], Optional[float]]] = {}
+        # seq -> (start, end, arrived_at, t_wall, due_at)
+        self._segments: Dict[int, Tuple[float, float, Optional[float], Optional[float], Optional[float]]] = {}
         # window_id -> (end, t_wall); insertion order = order closed
         self._windows: Dict[str, Tuple[float, Optional[float]]] = {}
         self._clips: Dict[str, Optional[float]] = {}
@@ -592,7 +675,9 @@ class LatencyTracker:
                 duration = _num(event.get("duration"))
                 if seq is None or start is None or duration is None:
                     return
-                self._segments[int(seq)] = (start, start + duration, _num(event.get("arrived_at")), t_wall)
+                self._segments[int(seq)] = (
+                    start, start + duration, _num(event.get("arrived_at")), t_wall, _num(event.get("due_at"))
+                )
             elif kind == "window":
                 wid = event.get("window_id")
                 end = _num(event.get("end"))
@@ -609,33 +694,38 @@ class LatencyTracker:
 
     # ---------------------------------------------------------------- queries
 
-    def _arrival_of(self, t: float, ordered: List[Tuple[float, float, Optional[float]]]) -> Optional[float]:
-        """Arrival time of the segment containing media time ``t`` (``start < t <= end``)."""
+    def _segment_at(self, t: float, ordered: List[Tuple[float, float, Optional[float], Optional[float]]]):
+        """The ``(start, end, arrived_at, due_at)`` of the segment containing media time ``t``
+        (``start < t <= end``), or ``None``."""
         starts = [s[0] for s in ordered]
         i = bisect.bisect_left(starts, t - self._EPS) - 1
         if i < 0:
             i = 0 if ordered and t <= ordered[0][1] + self._EPS else -1
         if i < 0:
             return None
-        start, end, arrived = ordered[i]
-        if t > end + self._EPS:
+        row = ordered[i]
+        if t > row[1] + self._EPS:
             return None
-        return arrived
+        return row
 
     def per_clip(self) -> List[ClipLatency]:
         """One row per logged window, in the order windows were logged.
 
-        ``cut_latency`` is ``None`` for a window with no ``clip`` event.
+        ``cut_latency`` and ``time_to_clip`` are ``None`` for a window with no
+        ``clip`` event; ``time_to_clip`` also when the segment has no ``due_at``.
         """
         with self._lock:
-            ordered = sorted((s, e, a) for s, e, a, _ in self._segments.values())
+            ordered = sorted(((s, e, a, d) for s, e, a, _, d in self._segments.values()), key=lambda r: r[0])
             rows: List[ClipLatency] = []
             for wid, (end, closed) in self._windows.items():
-                arrived = self._arrival_of(end, ordered)
+                seg = self._segment_at(end, ordered)
+                arrived = seg[2] if seg is not None else None
+                due = seg[3] if seg is not None else None
                 detect = closed - arrived if closed is not None and arrived is not None else None
                 done = self._clips.get(wid)
                 cut = done - closed if done is not None and closed is not None else None
-                rows.append(ClipLatency(wid, end, detect, cut))
+                ttc = done - due if done is not None and due is not None else None
+                rows.append(ClipLatency(wid, end, detect, cut, ttc))
             return rows
 
     def per_segment(self) -> List[SegmentLatency]:
@@ -643,23 +733,31 @@ class LatencyTracker:
         with self._lock:
             rows = []
             for seq in sorted(self._segments):
-                _, _, arrived, done = self._segments[seq]
+                _, _, arrived, done, due = self._segments[seq]
                 lag = done - arrived if done is not None and arrived is not None else None
-                rows.append(SegmentLatency(seq, lag))
+                behind = done - due if done is not None and due is not None else None
+                rows.append(SegmentLatency(seq, lag, behind))
             return rows
 
+    def values(self) -> Dict[str, List[float]]:
+        """The raw values behind :meth:`summary`, per metric (for pooling over channels)."""
+        clips = self.per_clip()
+        segs = self.per_segment()
+        return {
+            "detect_latency": [c.detect_latency for c in clips if c.detect_latency is not None],
+            "cut_latency": [c.cut_latency for c in clips if c.cut_latency is not None],
+            "total_latency": [c.total_latency for c in clips if c.total_latency is not None],
+            "time_to_clip": [c.time_to_clip for c in clips if c.time_to_clip is not None],
+            "ingest_lag": [s.ingest_lag for s in segs if s.ingest_lag is not None],
+            "behind_schedule": [s.behind_schedule for s in segs if s.behind_schedule is not None],
+        }
+
     def summary(self) -> Dict[str, Dict[str, Optional[float]]]:
-        """``{metric: {count, p50, p95, mean, max}}`` for ``detect_latency``,
-        ``cut_latency``, ``total_latency`` and ``ingest_lag``.
+        """``{metric: {count, p50, p95, mean, max}}`` for each of :data:`LATENCY_METRICS`
+        (``detect_latency``, ``cut_latency``, ``total_latency``, ``time_to_clip``,
+        ``ingest_lag``, ``behind_schedule``).
 
         Missing values are left out of the statistics; a metric with no values
         has ``count`` 0 and ``None`` elsewhere.
         """
-        clips = self.per_clip()
-        segs = self.per_segment()
-        return {
-            "detect_latency": _stats([c.detect_latency for c in clips if c.detect_latency is not None]),
-            "cut_latency": _stats([c.cut_latency for c in clips if c.cut_latency is not None]),
-            "total_latency": _stats([c.total_latency for c in clips if c.total_latency is not None]),
-            "ingest_lag": _stats([s.ingest_lag for s in segs if s.ingest_lag is not None]),
-        }
+        return {k: _stats(v) for k, v in self.values().items()}
