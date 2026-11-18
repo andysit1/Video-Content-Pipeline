@@ -15,6 +15,7 @@ Nothing here talks to any outside host.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import http.server
 import logging
@@ -25,7 +26,7 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Collection, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Collection, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from ..media import MediaError, ffmpeg_exe
 
@@ -307,6 +308,10 @@ class _TwitchHandler(_QuietHandler):
         if name.startswith(("ad_", "prefetch_", "init")):
             self.send_error(404)
             return
+        blocked = owner.segment_status
+        if blocked is not None:
+            self.send_error(blocked)
+            return
         if "-muted." in name:
             self.path = "/" + name.replace("-muted.", ".")
         super().do_GET()
@@ -338,7 +343,9 @@ class TwitchLikeServer:
     :meth:`expire_token` the old URL answers 403; after :meth:`set_offline`
     the playlist answers 404. :meth:`resolve` is a fake resolver: it returns
     the current URL, raises ``StreamOffline`` when offline, and raises
-    ``ResolveError`` (transient) ``fail_resolves`` times first.
+    ``ResolveError`` (transient) ``fail_resolves`` times first. Setting
+    :attr:`segment_status` (e.g. 403) makes every segment request answer that
+    code while the playlist keeps working, like an edge host that refuses us.
     """
 
     def __init__(
@@ -372,6 +379,7 @@ class TwitchLikeServer:
         self._lock = threading.Lock()
         self.token = 1
         self.offline = False
+        self.segment_status: Optional[int] = None
         self.requests: List[str] = []
         self.resolve_calls = 0
         self.playlist_codes: Dict[int, int] = {}
@@ -529,3 +537,33 @@ class TwitchLikeServer:
             last = entries[-1][0]
             out += [f"#EXT-X-TWITCH-PREFETCH:prefetch_{last + 1}.ts", f"#EXT-X-TWITCH-PREFETCH:prefetch_{last + 2}.ts"]
         return "\n".join(out) + "\n"
+
+
+@dataclasses.dataclass(frozen=True)
+class FixedUrlResolver:
+    """A picklable resolver that always returns ``url`` (for tests across processes).
+
+    ``offline`` makes it raise ``StreamOffline`` instead. See
+    :class:`FixedUrlFactory` for a picklable ``resolver_factory``.
+    """
+
+    url: str
+    offline: bool = False
+
+    def resolve(self) -> str:
+        from ..sources.hls import StreamOffline  # noqa: PLC0415 - avoid an import cycle
+
+        if self.offline:
+            raise StreamOffline("simulated stream is offline")
+        return self.url
+
+
+@dataclasses.dataclass(frozen=True)
+class FixedUrlFactory:
+    """Picklable ``resolver_factory(target, quality)``: maps channel ident -> playlist URL (absent: offline)."""
+
+    urls: Tuple[Tuple[str, str], ...]
+
+    def __call__(self, target: Any, quality: str) -> FixedUrlResolver:
+        url = dict(self.urls).get(target.ident)
+        return FixedUrlResolver(url or "", offline=url is None)

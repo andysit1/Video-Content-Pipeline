@@ -447,6 +447,7 @@ class ChannelResult:
     stopped: bool = False  # ended by stop() rather than end of stream
     error: Optional[str] = None  # set if the channel itself failed
     latency: Dict[str, Dict[str, Optional[float]]] = field(default_factory=dict)
+    source: Dict[str, Any] = field(default_factory=dict)  # the source's own ``stats()``, if it has one
 
     @property
     def ok(self) -> bool:
@@ -810,6 +811,13 @@ class ChannelPipeline:
             self.pool.shutdown(wait=True, timeout=10.0)
 
         res.latency = self.log.latency.summary()
+        stats = getattr(self.source, "stats", None)
+        if callable(stats):
+            try:
+                res.source = dict(stats())
+            except Exception:  # noqa: BLE001
+                log.exception("%s: reading the source's stats failed", self.channel)
+        extra = {"source": res.source} if res.source else {}
         self.log.log_session_end(
             segments=res.segments,
             windows=res.windows,
@@ -817,6 +825,7 @@ class ChannelPipeline:
             scored=res.scored,
             stopped=res.stopped,
             error=res.error,
+            **extra,
         )
         self.log.close()
         self.buffer.close()

@@ -2,14 +2,21 @@
 
 ::
 
-    vidflow-live watch CHANNEL_OR_URL [...] [--quality best] [--duration 2h] [--out DIR]
-                       [--session NAME] [--set KEY=VALUE ...] [-v]
+    vidflow-live watch CHANNEL_OR_URL [...] [--wait] [--quality best] [--duration 2h] [--procs N]
+                       [--out DIR] [--session NAME] [--set KEY=VALUE ...] [-v]
     vidflow-live vod URL [--start 1:00:00] [--end 1:05:00] [--quality best] [--out DIR] ...
 
-``watch`` follows every live channel at once (one ``TwitchSource`` per channel
-under one ``Supervisor``) until each stream ends, ``--duration`` passes or
-Ctrl-C. It also accepts VOD URLs (processed from ``?t=`` to the end). ``vod``
-processes one VOD, or a slice of it, as fast as it downloads.
+``watch`` follows every live channel at once (one ``TwitchSource`` per channel)
+until each stream ends, ``--duration`` passes or Ctrl-C. With ``--wait`` an
+offline channel is checked every ``--offline-poll`` seconds until it goes live,
+and after each broadcast it waits for the next one, so the command runs until
+``--duration`` or Ctrl-C. Above ``channels_per_process`` (20) channels, or with
+``--procs N``, channels are split over worker processes. It also accepts VOD
+URLs (processed from ``?t=`` to the end). ``vod`` processes one VOD, or a
+slice of it, as fast as it downloads.
+
+A channel whose stream ends while its segments cannot be downloaded is
+reported as FAILED and the command exits with status 1.
 
 Output is the same as ``replay``: ``<out>/<channel>/<session>/{events.jsonl,
 clips/*.mp4, clips/*.json}``. The channel folder is the login, or
@@ -32,8 +39,7 @@ from .config import ConfigError
 from .sources.twitch import (
     DEFAULT_QUALITY,
     ResolveError,
-    StreamlinkResolver,
-    TwitchSource,
+    TwitchFactory,
     TwitchTarget,
     parse_target,
     parse_time,
@@ -46,7 +52,8 @@ __all__ = ["register", "watch", "vod", "RESOLVER_FACTORY"]
 # Twitch VOD segments are about 10 s long (live ones about 2 s).
 _VOD_SEGMENT_S = 10.0
 
-#: Builds the resolver for a target. Tests replace this to point at ``hls_sim``.
+#: Builds the resolver for a target. Tests replace this to point at ``hls_sim``;
+#: with more than one process it must be picklable.
 RESOLVER_FACTORY: Optional[Callable[[TwitchTarget, str], Any]] = None
 
 
@@ -81,15 +88,15 @@ def _run(
     duration: Optional[float],
     start_s: Optional[float] = None,
     end_s: Optional[float] = None,
+    wait: bool = False,
+    offline_poll_s: float = 60.0,
+    processes: int = 0,
 ) -> None:
     from . import cli as base  # noqa: PLC0415 - the main group module; imported late to avoid a cycle
-    from .supervisor import Supervisor  # noqa: PLC0415
+    from .shard import ShardedSupervisor, make_supervisor  # noqa: PLC0415
 
     base._setup_logging(verbose)
     config = base._config_from(overrides)
-    if not any(o.split("=", 1)[0].strip() == "queue_size" for o in overrides):
-        # The job queue is shared by every channel (design notes: scale it).
-        config = config.replace(queue_size=max(config.queue_size, 4 * len(targets)))
     if any(not t.is_live for t in targets):
         try:
             config.validate(segment_duration=_VOD_SEGMENT_S)
@@ -104,9 +111,6 @@ def _run(
             require_streamlink()
         except ResolveError as exc:
             raise click.ClickException(str(exc)) from exc
-
-        def factory(target: TwitchTarget, q: str) -> Any:
-            return StreamlinkResolver(target, q)
 
     def on_clip(clip: Clip) -> None:
         w = clip.window
@@ -123,35 +127,44 @@ def _run(
             f"rank_percentile={extra.get('rank_percentile', 0.0):.0f}"
         )
 
-    sup = Supervisor(config, out_dir, session=session, on_clip=on_clip, on_score=on_score)
-    sources: Dict[str, TwitchSource] = {}
-    names = _unique_names(targets)
-    for target, name in zip(targets, names):
-
-        def make(work_dir: Path, target: TwitchTarget = target, name: str = name) -> TwitchSource:
-            src = TwitchSource(
+    sup = make_supervisor(
+        config, out_dir, channels=len(targets), processes=processes or None,
+        session=session, on_clip=on_clip, on_score=on_score,
+    )
+    for target, name in zip(targets, _unique_names(targets)):
+        sup.add_channel(
+            TwitchFactory(
                 target,
-                work_dir,
-                resolver=factory(target, quality),
-                channel=name,
+                name,
+                quality=quality,
                 start_s=start_s,
                 end_s=end_s,
-            )
-            sources[name] = src
-            return src
-
-        sup.add_channel(make, channel=name)
+                wait=wait and target.is_live,
+                offline_poll_s=offline_poll_s,
+                resolver_factory=factory,
+            ),
+            channel=name,
+        )
 
     live = sum(t.is_live for t in targets)
     kinds = ", ".join(x for x in (f"{live} live" if live else "", f"{len(targets) - live} VOD" if live < len(targets) else "") if x)
     limit = f", for at most {duration:g} s" if duration else ""
-    base._echo(f"session {sup.session}: {kinds} at quality {quality}{limit} -> {out_dir}")
+    waiting = ", waiting for offline channels" if wait and live else ""
+    procs = f" in {sup.processes} processes" if isinstance(sup, ShardedSupervisor) else ""
+    base._echo(f"session {sup.session}: {kinds} at quality {quality}{limit}{waiting}{procs} -> {out_dir}")
     results = sup.run(timeout=duration)
     base._report(results)
-    for name, src in sources.items():
+    for name, r in results.items():
+        st = r.source
+        if not st:
+            continue
+        reason = st.get("end_reason") or "unknown"
+        hint = " (not live; pass --wait to wait for it)" if reason == "offline" and st.get("segments") == 0 else ""
+        broadcasts = f"{st.get('broadcasts', 0)} broadcast(s), " if wait else ""
         base._echo(
-            f"[{name}] source ended: {src.end_reason or 'unknown'}; {src.hls.segments_yielded} segments, "
-            f"{src.segments_ad} ad segments skipped, {src.hls.segments_missed} missed, {src.reconnects} reconnects"
+            f"[{name}] source ended: {reason}{hint}; {broadcasts}{st.get('segments', 0)} segments, "
+            f"{st.get('ad_segments', 0)} ad segments skipped, {st.get('missed', 0)} missed "
+            f"({st.get('fetch_failures', 0)} failed downloads), {st.get('reconnects', 0)} reconnects"
         )
 
     if sup.interrupted:
@@ -184,12 +197,19 @@ _set_option = click.option(
     "--set", "overrides", multiple=True, metavar="KEY=VALUE", help="Override a RealtimeConfig setting; repeatable."
 )
 _verbose_option = click.option("-v", "--verbose", count=True, help="-v: info logging, -vv: debug.")
+_procs_option = click.option(
+    "--procs", "processes", default=0, show_default=True, type=click.IntRange(min=0),
+    help="Worker processes; 0 = one per channels_per_process (20) channels, 1 = a single process.",
+)
 
 
 @click.command()
 @click.argument("channels", nargs=-1, required=True, metavar="CHANNEL_OR_URL...")
 @_quality_option
 @click.option("--duration", default=None, metavar="TIME", help="Stop after this long (e.g. 600, 10m, 1:30:00). Default: until the streams end.")
+@click.option("--wait", is_flag=True, help="Wait for offline channels to go live, and for the next broadcast after one ends. Runs until --duration or Ctrl-C.")
+@click.option("--offline-poll", default="60", show_default=True, metavar="TIME", help="With --wait: how often to check whether an offline channel is live.")
+@_procs_option
 @_out_option
 @_session_option
 @_set_option
@@ -198,6 +218,9 @@ def watch(
     channels: Tuple[str, ...],
     quality: str,
     duration: Optional[str],
+    wait: bool,
+    offline_poll: str,
+    processes: int,
     out_dir: Path,
     session: Optional[str],
     overrides: Tuple[str, ...],
@@ -205,10 +228,14 @@ def watch(
 ) -> None:
     """Follow Twitch channels live (names or twitch.tv URLs) and clip them as they stream.
 
-    A channel that is offline when following starts ends at once. Each
-    channel ends when its stream ends; Ctrl-C stops all of them cleanly.
+    Without --wait, a channel that is offline when following starts ends at
+    once and each channel ends when its stream ends. Ctrl-C stops all of
+    them cleanly.
     """
     targets = _targets(channels)
+    poll = _time_option(offline_poll, "--offline-poll")
+    if poll is None or poll <= 0:
+        raise click.BadParameter("must be > 0", param_hint="--offline-poll")
     _run(
         targets,
         quality=quality,
@@ -217,6 +244,9 @@ def watch(
         overrides=overrides,
         verbose=verbose,
         duration=_time_option(duration, "--duration"),
+        wait=wait,
+        offline_poll_s=poll,
+        processes=processes,
     )
 
 

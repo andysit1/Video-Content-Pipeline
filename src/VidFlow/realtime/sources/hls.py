@@ -73,6 +73,7 @@ __all__ = [
     "PlaylistError",
     "UnsupportedPlaylistError",
     "StreamOffline",
+    "SegmentFetchError",
     "ResolveError",
     "PlaylistSegment",
     "MediaPlaylist",
@@ -91,6 +92,9 @@ _FIRST_BACKOFF_S = 1.0
 _MAX_BACKOFF_S = 30.0
 # Re-resolves in a row without a new segment before a stall is final.
 _MAX_STALL_REFRESHES = 2
+# A stream that ends while this many segment downloads in a row have failed
+# ended because of them (or we could not tell): raise SegmentFetchError.
+_FAILED_FETCH_RUN = 3
 
 
 class PlaylistError(ValueError):
@@ -106,6 +110,15 @@ class UnsupportedPlaylistError(RuntimeError):
 
 class StreamOffline(Exception):
     """Raised by a ``refresh`` callable: the stream has ended or is offline."""
+
+
+class SegmentFetchError(RuntimeError):
+    """The stream ended while its segments could not be downloaded.
+
+    Raised at the end of iteration (stall, offline, end of list) when the last
+    few segment downloads in a row all failed, so a channel whose video never
+    arrives is reported as failed rather than as an empty success.
+    """
 
 
 class ResolveError(RuntimeError):
@@ -391,6 +404,9 @@ class HlsSource:
     ``skip_ads``          drop ad segments (default); ``False`` treats them as
                           content.
     ``headers``           extra HTTP request headers (e.g. a User-Agent).
+    ``seq_offset`` / ``time_offset_s``  number and media time of the first
+                          segment yielded (default 0); used to chain several
+                          broadcasts into one source.
 
     Single-use: iterate once. :meth:`close` is safe from any thread and makes
     a waiting iterator return at once; an HTTP request already in flight is
@@ -412,6 +428,8 @@ class HlsSource:
         end_offset_s: Optional[float] = None,
         skip_ads: bool = True,
         headers: Optional[Mapping[str, str]] = None,
+        seq_offset: int = 0,
+        time_offset_s: float = 0.0,
     ) -> None:
         if playlist is None and refresh is None:
             raise ValueError("playlist or refresh must be given")
@@ -437,6 +455,10 @@ class HlsSource:
         self.end_offset_s = None if end_offset_s is None else float(end_offset_s)
         self.skip_ads = bool(skip_ads)
         self.headers: Dict[str, str] = dict(headers or {})
+        if seq_offset < 0 or not time_offset_s >= 0:
+            raise ValueError("seq_offset and time_offset_s must be >= 0")
+        self.seq_offset = int(seq_offset)
+        self.time_offset_s = float(time_offset_s)
 
         self._closed = threading.Event()
         self._started = False
@@ -450,6 +472,9 @@ class HlsSource:
         self.segments_missed = 0  # listed or implied segments that were never yielded
         self.segments_ad = 0  # ad segments skipped
         self.reconnects = 0  # successful refresh() calls after the first
+        self.fetch_failures = 0  # segment downloads that failed (also counted in segments_missed)
+        self.last_fetch_error: Optional[str] = None
+        self._fail_run = 0  # failed downloads since the last good one
         # "endlist", "end_offset", "stall", "offline", "closed" or "error" (raised)
         self.end_reason: Optional[str] = None
 
@@ -475,6 +500,18 @@ class HlsSource:
             if self.end_reason is None:
                 self.end_reason = "error"
             raise
+        if self._fail_run >= _FAILED_FETCH_RUN and self.end_reason in ("stall", "offline", "endlist", "end_offset"):
+            how = self.end_reason
+            self.end_reason = "error"
+            got = (
+                "no segment was ever downloaded"
+                if self.segments_yielded == 0
+                else f"the last {self._fail_run} downloads failed"
+            )
+            raise SegmentFetchError(
+                f"{self.channel}: stream ended ({how}) while segments could not be downloaded: {got} "
+                f"({self.fetch_failures} failed in total); last error: {self.last_fetch_error}"
+            )
 
     # ------------------------------------------------------------------ main loop
 
@@ -485,7 +522,7 @@ class HlsSource:
                 return
         next_msn: Optional[int] = None  # first media sequence number not yet handled
         pl_t = 0.0  # playlist time at the start of next_msn
-        media_t = 0.0
+        media_t = self.time_offset_s
         prev: Optional[Segment] = None
         prev_disc_seq: Optional[int] = None
         lost = False  # content was lost since the last yielded segment
@@ -541,12 +578,15 @@ class HlsSource:
                         log.debug("%s: skipping ad segment %d", self.channel, ps.msn)
                         continue
 
-                    seq = self.segments_yielded
+                    seq = self.seq_offset + self.segments_yielded
                     path = self._fetch(ps, seq)
                     if path is None:
                         self.segments_missed += 1
+                        self.fetch_failures += 1
+                        self._fail_run += 1
                         lost = True
                         continue
+                    self._fail_run = 0
 
                     disc = prev is not None and (
                         lost or ps.discontinuity or ps.discontinuity_seq != prev_disc_seq
@@ -721,11 +761,14 @@ class HlsSource:
                         loc = alt
                         continue
                     log.warning("%s: segment %d gone (%s)", self.channel, ps.msn, exc.code)
+                    self.last_fetch_error = f"HTTP {exc.code} for segment {ps.msn}"
                     return None
                 log.warning("%s: segment %d fetch failed: %s", self.channel, ps.msn, exc)
+                self.last_fetch_error = f"HTTP {exc.code} for segment {ps.msn}"
             except (OSError, urllib.error.URLError) as exc:
                 self._discard(part)
                 log.warning("%s: segment %d fetch failed: %s", self.channel, ps.msn, exc)
+                self.last_fetch_error = f"{type(exc).__name__}: {exc}"
                 if not is_url:
                     return None
             if attempt < attempts and self._closed.wait(0.1):

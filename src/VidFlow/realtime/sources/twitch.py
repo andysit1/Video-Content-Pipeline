@@ -37,16 +37,18 @@ Quality
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import re
+import threading
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Protocol, Sequence, Union
 
 from ..types import Segment
-from .hls import HlsSource, ResolveError, StreamOffline
+from .hls import HlsSource, ResolveError, SegmentFetchError, StreamOffline
 
 __all__ = [
     "DEFAULT_QUALITY",
@@ -57,7 +59,9 @@ __all__ = [
     "Resolver",
     "StreamlinkResolver",
     "TwitchSource",
+    "TwitchFactory",
     "StreamOffline",
+    "SegmentFetchError",
     "ResolveError",
     "require_streamlink",
 ]
@@ -332,13 +336,22 @@ class TwitchSource:
     ``start_s`` / ``end_s``  slice of a VOD (seconds from its start; ``start_s``
                    defaults to the URL's ``?t=``). For a live channel they
                    count from when following began.
+    ``wait``       live channels only: when the channel is offline, check every
+                   ``offline_poll_s`` seconds until it goes live, and after each
+                   broadcast ends go back to waiting for the next one. The
+                   source then ends only when closed (``--duration``, Ctrl-C).
+                   Broadcasts are chained: ``seq`` and media time continue,
+                   and the first segment of each later broadcast is flagged
+                   ``discontinuity``.
     ``hls_options`` passed to :class:`HlsSource` (``poll_s``,
                    ``stall_timeout_s``, ``reconnect_timeout_s`` ...).
 
-    A live channel ends when the stream goes offline (``end_reason ==
-    "offline"``), a VOD at its end (``"endlist"``) or at ``end_s``
-    (``"end_offset"``). A channel that is offline when following starts yields
-    nothing and ends with ``"offline"``.
+    Without ``wait`` a live channel ends when the stream goes offline
+    (``end_reason == "offline"``), a VOD at its end (``"endlist"``) or at
+    ``end_s`` (``"end_offset"``), and a channel that is offline when following
+    starts yields nothing and ends with ``"offline"``. If the stream ends
+    while its segments could not be downloaded, iteration raises
+    :class:`~VidFlow.realtime.sources.hls.SegmentFetchError`.
     """
 
     def __init__(
@@ -351,6 +364,8 @@ class TwitchSource:
         channel: Optional[str] = None,
         start_s: Optional[float] = None,
         end_s: Optional[float] = None,
+        wait: bool = False,
+        offline_poll_s: float = 60.0,
         **hls_options: Any,
     ) -> None:
         self.target = target if isinstance(target, TwitchTarget) else parse_target(target)
@@ -360,38 +375,182 @@ class TwitchSource:
         elif not hasattr(resolver, "resolve") and callable(resolver):
             resolver = _CallableResolver(resolver)
         self.resolver: Resolver = resolver  # type: ignore[assignment]
-        start = self.target.start_s if start_s is None else float(start_s)
+        if wait and not self.target.is_live:
+            raise ValueError("wait applies to live channels only")
+        if not offline_poll_s > 0:
+            raise ValueError("offline_poll_s must be > 0")
+        self.wait = bool(wait)
+        self.offline_poll_s = float(offline_poll_s)
+        self.work_dir = Path(work_dir)
+        self._start_s = self.target.start_s if start_s is None else float(start_s)
+        self._end_s = end_s
         headers: Dict[str, str] = dict(hls_options.pop("headers", None) or {})
         ua = getattr(self.resolver, "user_agent", None)
         if ua and "User-Agent" not in headers:
             headers["User-Agent"] = ua
-        self.hls = HlsSource(
-            None,
+        self._headers = headers
+        self._hls_options = hls_options
+        self._closed = threading.Event()
+        self._lock = threading.Lock()
+        self._started = False
+        self._end_reason: Optional[str] = None
+        #: One HlsSource per broadcast followed (the current one last).
+        self.broadcasts: List[HlsSource] = []
+        self.hls = self._new_hls(None, seq_offset=0, time_offset_s=0.0, first=True)
+
+    def _new_hls(self, url: Optional[str], *, seq_offset: int, time_offset_s: float, first: bool) -> HlsSource:
+        return HlsSource(
+            url,
             self.channel,
-            work_dir,
+            self.work_dir,
             refresh=self.resolver.resolve,
-            start_offset_s=start,
-            end_offset_s=end_s,
-            headers=headers,
-            **hls_options,
+            start_offset_s=self._start_s if first else 0.0,
+            end_offset_s=self._end_s if first else None,
+            headers=self._headers,
+            seq_offset=seq_offset,
+            time_offset_s=time_offset_s,
+            **self._hls_options,
         )
 
     # Source protocol
     def __iter__(self) -> Iterator[Segment]:
-        return iter(self.hls)
+        if self._started:
+            raise RuntimeError("TwitchSource can only be iterated once")
+        self._started = True
+        if not self.wait:
+            with self._lock:
+                self.broadcasts.append(self.hls)
+            return iter(self.hls)
+        return self._follow()
 
     def close(self) -> None:
-        self.hls.close()
+        self._closed.set()
+        with self._lock:
+            hls = self.hls
+        hls.close()
+
+    def _follow(self) -> Iterator[Segment]:
+        """Wait mode: wait for the channel to go live, follow it, repeat."""
+        seq, t = 0, 0.0
+        first = True
+        while not self._closed.is_set():
+            url = self._wait_until_live()
+            if url is None:
+                break
+            hls = self._new_hls(url, seq_offset=seq, time_offset_s=t, first=first)
+            with self._lock:
+                self.hls = hls
+                self.broadcasts.append(hls)
+            if self._closed.is_set():
+                hls.close()
+            log.info("%s: live; following broadcast %d", self.channel, len(self.broadcasts))
+            mark = not first
+            for seg in hls:
+                if mark:
+                    seg = dataclasses.replace(seg, discontinuity=True)
+                    mark = False
+                seq, t = seg.seq + 1, seg.end
+                yield seg
+            first = False
+            if hls.end_reason not in ("offline", "stall"):
+                self._end_reason = hls.end_reason
+                return
+            log.info("%s: broadcast ended (%s); waiting for the next one", self.channel, hls.end_reason)
+        self._end_reason = "closed"
+
+    def _wait_until_live(self) -> Optional[str]:
+        """Poll the resolver until the channel is live; ``None`` if closed first."""
+        announced = False
+        while not self._closed.is_set():
+            try:
+                return self.resolver.resolve()
+            except StreamOffline:
+                if not announced:
+                    log.info("%s: offline; checking every %g s until it goes live", self.channel, self.offline_poll_s)
+                    announced = True
+            except ResolveError as exc:
+                if not exc.transient:
+                    raise
+                log.warning("%s: could not check whether the channel is live: %s", self.channel, exc)
+            except Exception as exc:  # noqa: BLE001 - any resolver failure is retried later
+                log.warning("%s: could not check whether the channel is live: %s", self.channel, exc)
+            if self._closed.wait(self.offline_poll_s):
+                break
+        return None
 
     # Statistics
+    def _all(self) -> List[HlsSource]:
+        with self._lock:
+            return list(self.broadcasts) or [self.hls]
+
     @property
     def end_reason(self) -> Optional[str]:
-        return self.hls.end_reason
+        return self._end_reason or self.hls.end_reason
+
+    @property
+    def segments_yielded(self) -> int:
+        return sum(h.segments_yielded for h in self._all())
+
+    @property
+    def segments_missed(self) -> int:
+        return sum(h.segments_missed for h in self._all())
 
     @property
     def segments_ad(self) -> int:
-        return self.hls.segments_ad
+        return sum(h.segments_ad for h in self._all())
 
     @property
     def reconnects(self) -> int:
-        return self.hls.reconnects
+        return sum(h.reconnects for h in self._all())
+
+    @property
+    def fetch_failures(self) -> int:
+        return sum(h.fetch_failures for h in self._all())
+
+    def stats(self) -> Dict[str, Any]:
+        """Totals over every broadcast followed (recorded in the channel result)."""
+        return {
+            "end_reason": self.end_reason,
+            "broadcasts": sum(1 for h in self._all() if h.segments_yielded > 0),
+            "segments": self.segments_yielded,
+            "ad_segments": self.segments_ad,
+            "missed": self.segments_missed,
+            "fetch_failures": self.fetch_failures,
+            "reconnects": self.reconnects,
+            "quality": getattr(self.resolver, "chosen_quality", None),
+        }
+
+
+@dataclass(frozen=True)
+class TwitchFactory:
+    """Picklable source factory for a channel, so channels can run in worker processes.
+
+    Builds a :class:`TwitchSource` with a :class:`StreamlinkResolver`, or with
+    ``resolver_factory(target, quality)`` when given (must itself be picklable
+    to run in another process).
+    """
+
+    target: TwitchTarget
+    channel: str
+    quality: str = DEFAULT_QUALITY
+    start_s: Optional[float] = None
+    end_s: Optional[float] = None
+    wait: bool = False
+    offline_poll_s: float = 60.0
+    resolver_factory: Optional[Callable[[TwitchTarget, str], Any]] = None
+
+    def __call__(self, work_dir: Path) -> TwitchSource:
+        if self.resolver_factory is not None:
+            resolver = self.resolver_factory(self.target, self.quality)
+        else:
+            resolver = StreamlinkResolver(self.target, self.quality)
+        return TwitchSource(
+            self.target,
+            work_dir,
+            resolver=resolver,
+            channel=self.channel,
+            start_s=self.start_s,
+            end_s=self.end_s,
+            wait=self.wait,
+            offline_poll_s=self.offline_poll_s,
+        )
